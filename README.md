@@ -5,7 +5,7 @@ Table of Contents
 - [Overview](#overview)
 - [Dramatization](#dramatization)
 - [Addressing](#addressing)
-- [/ipfs/relay/circuit wire protocol](#ipfsrelaycircuit-wire-protocol)
+- [Wire protocol](#wire-protocol)
 - [Interfaces](#interfaces)
 - [Removing existing relay protocol](#removing-existing-relay-protocol)
 
@@ -17,20 +17,20 @@ libp2p nodes (such as IPFS) that wouldn't otherwise be able to connect to each o
 This helps in situations where nodes are behind NAT or reverse proxies,
 or simply don't support the same transports (e.g. go-ipfs vs. browser-ipfs).
 libp2p already has modules for NAT ([go-libp2p-nat](https://github.com/libp2p/go-libp2p-nat)),
-but these don't always do the job, just because NAT traversal is complicatd.
+but these don't always do the job, just because NAT traversal is complicated.
 That's why it's useful to have a simple relay protocol.
 
-One node asks a relay node to connect to another node on behalf of the first node.
+One node asks a relay node to connect to another node on its behalf.
 The relay node shortcircuits its streams to the two nodes,
 and they are then connected through the relay.
-This connection behaves just like a direct connection would,
-because it is in fact a direct connection,
+This relayed connection behaves just like a regular connection would,
+because it is in fact just that,
 but over an existing swarm stream with another peer, instead of e.g. TCP.
 
-Relayed connections are end-to-end encrypted just like direct connections.
+Relayed connections are end-to-end encrypted just like regular connections.
 
 The circuit relay is both a tunneled transport and a mounted swarm protocol.
-The transport is the means to *establishing* and *accepting* connections,
+The transport is the means of *establishing* and *accepting* connections,
 and the swarm protocol is the means to *relaying* connections.
 
 ```
@@ -100,7 +100,7 @@ A few examples:
 - `/ip4/../tcp/../p2p/QmRelay/p2p-circuit`
   - Listen for connections relayed through QmRelay.
   - Includes info for connecting to QmRelay.
-  - Dial through QmRelay for any `/p2p-circuit` multiaddr (depending on relay selection).
+  - Also makes QmRelay available for relayed dialing, based on how listeners currently relate to dialers.
 - `/p2p/QmRelay/p2p-circuit`
   - Same as previous example, but use peer routing to find an address for QmRelay.
 - `/p2p-circuit/p2p/QmTwo/p2p-circuit/p2p/QmThree`
@@ -158,26 +158,28 @@ Implementation details:
 
 As explained above, the relay is both a transport (`tpt.Transport`)
 and a mounted stream protocol (`p2pnet.StreamHandler`).
-In addition it provides a means of specifying relay nodes to listening/dialing through.
+In addition it provides a means of specifying relay nodes to listen/dial through.
 
 TODO: the usage of p2pnet.StreamHandler is a little bit off, but it gets the point across.
 
 ```go
 import (
   tpt "github.com/libp2p/go-libp2p-transport"
+  p2phost "github.com/libp2p/go-libp2p-host"
   p2pnet "github.com/libp2p/go-libp2p-net"
-  peer "github.com/libp2p/go-libp2p-peer"
-  proto "github.com/libp2p/go-libp2p-protocol"
+  p2proto "github.com/libp2p/go-libp2p-protocol"
 )
 
-const ID proto.ID = "/ipfs/relay/circuit/0.1.0"
+const ID p2proto.ID = "/ipfs/relay/circuit/0.1.0"
 
 type CircuitRelay interface {
   tpt.Transport
   p2pnet.StreamHandler
 
-  AllowRelaying(bool whetherToRelayOthersConnections)
+  EnableRelaying(enabled bool)
 }
+
+fund NewCircuitRelay(h p2phost.Host)
 ```
 
 
