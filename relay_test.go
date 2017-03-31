@@ -3,7 +3,9 @@ package relay
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
+	"strings"
 	"testing"
 
 	bhost "github.com/libp2p/go-libp2p-blankhost"
@@ -16,7 +18,6 @@ import (
 - simple A -[R]-> B
 - A tries to relay through R, R doesnt support relay
 - A tries to relay through R to B, B doesnt support relay
-- A sends invalid multiaddr
 - A sends too long multiaddr
 - R drops stream mid-message
 - A relays through R, R has no connection to B
@@ -71,16 +72,19 @@ func TestBasicRelay(t *testing.T) {
 		list, err := r3.Listener()
 		if err != nil {
 			t.Error(err)
+			return
 		}
 
 		con, err := list.Accept()
 		if err != nil {
 			t.Error(err)
+			return
 		}
 
 		_, err = con.Write(msg)
 		if err != nil {
 			t.Error("failed to write", err)
+			return
 		}
 		con.Close()
 	}()
@@ -102,5 +106,102 @@ func TestBasicRelay(t *testing.T) {
 
 	if !bytes.Equal(data, msg) {
 		t.Fatal("message was incorrect:", string(data))
+	}
+}
+
+func TestRelayThroughNonHop(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	hosts := getNetHosts(t, ctx, 3)
+
+	connect(t, hosts[0], hosts[1])
+	connect(t, hosts[1], hosts[2])
+
+	r1, err := NewRelay(ctx, hosts[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = NewRelay(ctx, hosts[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = NewRelay(ctx, hosts[2])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	destma, err := ma.NewMultiaddr("/ipfs/" + hosts[2].ID().Pretty())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = r1.Dial(ctx, hosts[1].ID(), destma)
+	if err.Error() != "protocol not supported" {
+		t.Fatal("expected 'protocol not supported' error")
+	}
+}
+
+func TestDestNoRelay(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	hosts := getNetHosts(t, ctx, 3)
+
+	connect(t, hosts[0], hosts[1])
+	connect(t, hosts[1], hosts[2])
+
+	r1, err := NewRelay(ctx, hosts[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = NewRelay(ctx, hosts[1], OptHop)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	destma, err := ma.NewMultiaddr("/ipfs/" + hosts[2].ID().Pretty())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 10; i++ {
+		destma = ma.Join(destma, destma)
+	}
+
+	_, err = r1.Dial(ctx, hosts[1].ID(), destma)
+	if !strings.HasPrefix(err.Error(), fmt.Sprintf("%d: address length was too long", StatusRelayAddrErr)) {
+		t.Fatal(err)
+	}
+}
+
+func TestRelayNoDestConnection(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	hosts := getNetHosts(t, ctx, 3)
+
+	connect(t, hosts[0], hosts[1])
+
+	r1, err := NewRelay(ctx, hosts[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = NewRelay(ctx, hosts[1], OptHop)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	destma, err := ma.NewMultiaddr("/ipfs/" + hosts[2].ID().Pretty())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = r1.Dial(ctx, hosts[1].ID(), destma)
+	if err.Error() != "260: refusing to make new connection for relay" {
+		t.Fatal("expected this not to work")
 	}
 }
