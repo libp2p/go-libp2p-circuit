@@ -14,7 +14,7 @@ message CircuitRelay {
     HOP_CANT_DIAL_DST          = 261;
     HOP_CANT_OPEN_DST_STREAM   = 262;
     HOP_CANT_SPEAK_RELAY       = 270;
-    HOP_CANT_REALAY_TO_SELF    = 280;
+    HOP_CANT_RELAY_TO_SELF     = 280;
     STOP_SRC_ADDR_TOO_LONG     = 320;
     STOP_DST_ADDR_TOO_LONG     = 321;
     STOP_SRC_MULTIADDR_INVALID = 350;
@@ -34,7 +34,7 @@ message CircuitRelay {
 
   optional Type type = 1;     // Type of the message
 
-  optional Peer srcPeer = 2;  // srcPeer and dstPeer are used when Type is HOP or STATUS
+  optional Peer srcPeer = 2;  // srcPeer and dstPeer are used when Type is HOP or STOP
   optional Peer dstPeer = 3;
 
   optional Status code = 4;   // Status code, used when Type is STATUS

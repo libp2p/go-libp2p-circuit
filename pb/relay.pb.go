@@ -34,7 +34,7 @@ const (
 	CircuitRelay_HOP_CANT_DIAL_DST          CircuitRelay_Status = 261
 	CircuitRelay_HOP_CANT_OPEN_DST_STREAM   CircuitRelay_Status = 262
 	CircuitRelay_HOP_CANT_SPEAK_RELAY       CircuitRelay_Status = 270
-	CircuitRelay_HOP_CANT_REALAY_TO_SELF    CircuitRelay_Status = 280
+	CircuitRelay_HOP_CANT_RELAY_TO_SELF     CircuitRelay_Status = 280
 	CircuitRelay_STOP_SRC_ADDR_TOO_LONG     CircuitRelay_Status = 320
 	CircuitRelay_STOP_DST_ADDR_TOO_LONG     CircuitRelay_Status = 321
 	CircuitRelay_STOP_SRC_MULTIADDR_INVALID CircuitRelay_Status = 350
@@ -51,7 +51,7 @@ var CircuitRelay_Status_name = map[int32]string{
 	261: "HOP_CANT_DIAL_DST",
 	262: "HOP_CANT_OPEN_DST_STREAM",
 	270: "HOP_CANT_SPEAK_RELAY",
-	280: "HOP_CANT_REALAY_TO_SELF",
+	280: "HOP_CANT_RELAY_TO_SELF",
 	320: "STOP_SRC_ADDR_TOO_LONG",
 	321: "STOP_DST_ADDR_TOO_LONG",
 	350: "STOP_SRC_MULTIADDR_INVALID",
@@ -67,7 +67,7 @@ var CircuitRelay_Status_value = map[string]int32{
 	"HOP_CANT_DIAL_DST":          261,
 	"HOP_CANT_OPEN_DST_STREAM":   262,
 	"HOP_CANT_SPEAK_RELAY":       270,
-	"HOP_CANT_REALAY_TO_SELF":    280,
+	"HOP_CANT_RELAY_TO_SELF":     280,
 	"STOP_SRC_ADDR_TOO_LONG":     320,
 	"STOP_DST_ADDR_TOO_LONG":     321,
 	"STOP_SRC_MULTIADDR_INVALID": 350,
