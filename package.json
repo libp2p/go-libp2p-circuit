@@ -83,6 +83,12 @@
       "hash": "QmZ4Qi3GaRbjcx28Sme5eMH7RQjGkt8wHxt2a65oLaeFEV",
       "name": "gogo-protobuf",
       "version": "0.0.0"
+    },
+    {
+      "author": "whyrusleeping",
+      "hash": "QmbQXcWAa9ZbTH74m6yroexY8QjTS4oivLNEFwjamZCJTU",
+      "name": "go-libp2p-blankhost",
+      "version": "0.1.15"
     }
   ],
   "gxVersion": "0.11.0",
