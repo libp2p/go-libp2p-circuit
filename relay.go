@@ -122,7 +122,7 @@ func (r *Relay) Dial(ctx context.Context, relay pstore.PeerInfo, dest pstore.Pee
 		return nil, RelayError{msg.GetCode()}
 	}
 
-	return &Conn{Stream: s}, nil
+	return &Conn{Stream: s, remote: dest}, nil
 }
 
 func (r *Relay) handleNewStream(s inet.Stream) {
