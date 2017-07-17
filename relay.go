@@ -9,7 +9,6 @@ import (
 
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
 
-	ggio "github.com/gogo/protobuf/io"
 	logging "github.com/ipfs/go-log"
 	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
@@ -89,8 +88,8 @@ func (r *Relay) Dial(ctx context.Context, relay pstore.PeerInfo, dest pstore.Pee
 		return nil, err
 	}
 
-	rd := ggio.NewDelimitedReader(s, maxMessageSize)
-	wr := ggio.NewDelimitedWriter(s)
+	rd := newDelimitedReader(s, maxMessageSize)
+	wr := newDelimitedWriter(s)
 
 	var msg pb.CircuitRelay
 
@@ -128,7 +127,7 @@ func (r *Relay) Dial(ctx context.Context, relay pstore.PeerInfo, dest pstore.Pee
 func (r *Relay) handleNewStream(s inet.Stream) {
 	log.Infof("new relay stream from: %s", s.Conn().RemotePeer())
 
-	rd := ggio.NewDelimitedReader(s, maxMessageSize)
+	rd := newDelimitedReader(s, maxMessageSize)
 
 	var msg pb.CircuitRelay
 
@@ -205,8 +204,8 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	}
 
 	// stop handshake
-	rd := ggio.NewDelimitedReader(bs, maxMessageSize)
-	wr := ggio.NewDelimitedWriter(bs)
+	rd := newDelimitedReader(bs, maxMessageSize)
+	wr := newDelimitedWriter(bs)
 
 	msg.Type = pb.CircuitRelay_STOP.Enum()
 
@@ -322,7 +321,7 @@ func (r *Relay) handleError(s inet.Stream, code pb.CircuitRelay_Status) {
 }
 
 func (r *Relay) writeResponse(s inet.Stream, code pb.CircuitRelay_Status) error {
-	wr := ggio.NewDelimitedWriter(s)
+	wr := newDelimitedWriter(s)
 
 	var msg pb.CircuitRelay
 	msg.Type = pb.CircuitRelay_STATUS.Enum()

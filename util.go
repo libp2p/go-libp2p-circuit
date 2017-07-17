@@ -1,10 +1,14 @@
 package relay
 
 import (
+	"encoding/binary"
 	"errors"
+	"io"
 
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
 
+	ggio "github.com/gogo/protobuf/io"
+	proto "github.com/gogo/protobuf/proto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
@@ -44,4 +48,43 @@ func peerInfoToPeer(pi pstore.PeerInfo) *pb.CircuitRelay_Peer {
 	p.Addrs = addrs
 
 	return p
+}
+
+type delimitedReader struct {
+	r   io.Reader
+	buf []byte
+}
+
+// the gogo protobuf NewDelimitedReader is buffered, which may eat up stream data
+func newDelimitedReader(r io.Reader, maxSize int) *delimitedReader {
+	return &delimitedReader{r: r, buf: make([]byte, maxSize)}
+}
+
+func (d *delimitedReader) ReadByte() (byte, error) {
+	buf := d.buf[:1]
+	_, err := d.r.Read(buf)
+	return buf[0], err
+}
+
+func (d *delimitedReader) ReadMsg(msg proto.Message) error {
+	mlen, err := binary.ReadUvarint(d)
+	if err != nil {
+		return err
+	}
+
+	if uint64(len(d.buf)) < mlen {
+		return errors.New("Message too large")
+	}
+
+	buf := d.buf[:mlen]
+	_, err = io.ReadFull(d.r, buf)
+	if err != nil {
+		return err
+	}
+
+	return proto.Unmarshal(buf, msg)
+}
+
+func newDelimitedWriter(w io.Writer) ggio.WriteCloser {
+	return ggio.NewDelimitedWriter(w)
 }
