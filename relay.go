@@ -95,7 +95,7 @@ func (r *Relay) Dial(ctx context.Context, relay pstore.PeerInfo, dest pstore.Pee
 	var msg pb.CircuitRelay
 
 	msg.Type = pb.CircuitRelay_HOP.Enum()
-	msg.SrcPeer = peerInfoToPeer(pstore.PeerInfo{r.self, r.host.Addrs()})
+	msg.SrcPeer = peerInfoToPeer(r.host.Peerstore().PeerInfo(r.self))
 	msg.DstPeer = peerInfoToPeer(dest)
 
 	err = wr.WriteMsg(&msg)
@@ -254,19 +254,21 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	log.Infof("relaying connection between %s and %s", src.ID.Pretty(), dst.ID.Pretty())
 
 	go func() {
-		_, err := io.Copy(s, bs)
+		count, err := io.Copy(s, bs)
 		if err != io.EOF && err != nil {
 			log.Debugf("relay copy error: %s", err)
 		}
 		s.Close()
+		log.Debugf("relayed %d bytes from %s to %s", count, dst.ID.Pretty(), src.ID.Pretty())
 	}()
 
 	go func() {
-		_, err := io.Copy(bs, s)
+		count, err := io.Copy(bs, s)
 		if err != io.EOF && err != nil {
 			log.Debugf("relay copy error: %s", err)
 		}
 		bs.Close()
+		log.Debugf("relayed %d bytes from %s to %s", count, src.ID.Pretty(), dst.ID.Pretty())
 	}()
 }
 
