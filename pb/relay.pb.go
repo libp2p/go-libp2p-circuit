@@ -39,6 +39,8 @@ const (
 	CircuitRelay_STOP_DST_ADDR_TOO_LONG     CircuitRelay_Status = 321
 	CircuitRelay_STOP_SRC_MULTIADDR_INVALID CircuitRelay_Status = 350
 	CircuitRelay_STOP_DST_MULTIADDR_INVALID CircuitRelay_Status = 351
+	CircuitRelay_STOP_RELAY_REFUSED         CircuitRelay_Status = 390
+	CircuitRelay_MALFORMED_MESSAGE          CircuitRelay_Status = 400
 )
 
 var CircuitRelay_Status_name = map[int32]string{
@@ -56,6 +58,8 @@ var CircuitRelay_Status_name = map[int32]string{
 	321: "STOP_DST_ADDR_TOO_LONG",
 	350: "STOP_SRC_MULTIADDR_INVALID",
 	351: "STOP_DST_MULTIADDR_INVALID",
+	390: "STOP_RELAY_REFUSED",
+	400: "MALFORMED_MESSAGE",
 }
 var CircuitRelay_Status_value = map[string]int32{
 	"SUCCESS":                    100,
@@ -72,6 +76,8 @@ var CircuitRelay_Status_value = map[string]int32{
 	"STOP_DST_ADDR_TOO_LONG":     321,
 	"STOP_SRC_MULTIADDR_INVALID": 350,
 	"STOP_DST_MULTIADDR_INVALID": 351,
+	"STOP_RELAY_REFUSED":         390,
+	"MALFORMED_MESSAGE":          400,
 }
 
 func (x CircuitRelay_Status) Enum() *CircuitRelay_Status {
@@ -94,20 +100,23 @@ func (x *CircuitRelay_Status) UnmarshalJSON(data []byte) error {
 type CircuitRelay_Type int32
 
 const (
-	CircuitRelay_HOP    CircuitRelay_Type = 1
-	CircuitRelay_STOP   CircuitRelay_Type = 2
-	CircuitRelay_STATUS CircuitRelay_Type = 3
+	CircuitRelay_HOP     CircuitRelay_Type = 1
+	CircuitRelay_STOP    CircuitRelay_Type = 2
+	CircuitRelay_STATUS  CircuitRelay_Type = 3
+	CircuitRelay_CAN_HOP CircuitRelay_Type = 4
 )
 
 var CircuitRelay_Type_name = map[int32]string{
 	1: "HOP",
 	2: "STOP",
 	3: "STATUS",
+	4: "CAN_HOP",
 }
 var CircuitRelay_Type_value = map[string]int32{
-	"HOP":    1,
-	"STOP":   2,
-	"STATUS": 3,
+	"HOP":     1,
+	"STOP":    2,
+	"STATUS":  3,
+	"CAN_HOP": 4,
 }
 
 func (x CircuitRelay_Type) Enum() *CircuitRelay_Type {
