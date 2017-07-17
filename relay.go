@@ -179,6 +179,7 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 		return
 	}
 
+	// open stream
 	ctp := r.host.Network().ConnsToPeer(dst.ID)
 	if len(ctp) == 0 {
 		if !r.active {
@@ -203,6 +204,44 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 		return
 	}
 
+	// stop handshake
+	rd := ggio.NewDelimitedReader(bs, maxMessageSize)
+	wr := ggio.NewDelimitedWriter(bs)
+
+	msg.Type = pb.CircuitRelay_STOP.Enum()
+
+	err = wr.WriteMsg(msg)
+	if err != nil {
+		log.Debugf("error writing stop handshake: %s", err.Error())
+		bs.Close()
+		r.handleError(s, pb.CircuitRelay_STOP_RELAY_REFUSED)
+		return
+	}
+
+	msg.Reset()
+
+	err = rd.ReadMsg(msg)
+	if err != nil {
+		log.Debugf("error reading stop response: %s", err.Error())
+		bs.Close()
+		r.handleError(s, pb.CircuitRelay_STOP_RELAY_REFUSED)
+		return
+	}
+
+	if msg.GetType() != pb.CircuitRelay_STATUS {
+		log.Debugf("unexpected relay stop response: not a status message (%d)", msg.GetType())
+		bs.Close()
+		r.handleError(s, pb.CircuitRelay_STOP_RELAY_REFUSED)
+		return
+	}
+
+	if msg.GetCode() != pb.CircuitRelay_SUCCESS {
+		log.Debugf("relay stop failure: %d", msg.GetCode())
+		bs.Close()
+		r.handleError(s, msg.GetCode())
+		return
+	}
+
 	err = r.writeResponse(s, pb.CircuitRelay_SUCCESS)
 	if err != nil {
 		log.Debugf("error writing relay response: %s", err.Error())
@@ -210,6 +249,7 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 		return
 	}
 
+	// relay connection
 	log.Infof("relaying connection between %s and %s", src.ID.Pretty(), dst.ID.Pretty())
 
 	go func() {
