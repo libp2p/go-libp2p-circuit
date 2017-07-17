@@ -245,6 +245,7 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	err = r.writeResponse(s, pb.CircuitRelay_SUCCESS)
 	if err != nil {
 		log.Debugf("error writing relay response: %s", err.Error())
+		bs.Close()
 		s.Close()
 		return
 	}
