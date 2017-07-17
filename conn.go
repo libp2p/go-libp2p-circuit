@@ -42,7 +42,7 @@ func (c *Conn) RemoteAddr() net.Addr {
 }
 
 func (c *Conn) RemoteMultiaddr() ma.Multiaddr {
-	a, err := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s/p2p-circuit/%s", c.remote.ID.Pretty(), c.Conn().RemotePeer()))
+	a, err := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s/p2p-circuit/ipfs/%s", c.remote.ID.Pretty(), c.Conn().RemotePeer().Pretty()))
 	if err != nil {
 		panic(err)
 	}
@@ -83,5 +83,5 @@ func (c *Conn) RemotePublicKey() ic.PubKey {
 }
 
 func (c *Conn) ID() string {
-	return "TODO: relay conn ID"
+	return iconn.ID(c)
 }
