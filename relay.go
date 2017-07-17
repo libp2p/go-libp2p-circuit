@@ -47,11 +47,11 @@ var (
 )
 
 type RelayError struct {
-	Code int32
+	Code pb.CircuitRelay_Status
 }
 
 func (e RelayError) Error() string {
-	return fmt.Sprintf("error opening relay circuit: %s (%d)", pb.CircuitRelay_Status_name[e.Code], e.Code)
+	return fmt.Sprintf("error opening relay circuit: %s (%d)", pb.CircuitRelay_Status_name[int32(e.Code)], e.Code)
 }
 
 func NewRelay(ctx context.Context, h host.Host, opts ...RelayOpt) (*Relay, error) {
@@ -119,7 +119,7 @@ func (r *Relay) Dial(ctx context.Context, relay pstore.PeerInfo, dest pstore.Pee
 
 	if msg.GetCode() != pb.CircuitRelay_SUCCESS {
 		s.Close()
-		return nil, RelayError{int32(msg.GetCode())}
+		return nil, RelayError{msg.GetCode()}
 	}
 
 	return &Conn{Stream: s}, nil
