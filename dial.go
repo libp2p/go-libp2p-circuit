@@ -42,16 +42,9 @@ func (d *Dialer) DialPeer(ctx context.Context, p peer.ID, a ma.Multiaddr) (tpt.C
 		return nil, err
 	}
 
-	destp2p, err := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s", p.Pretty()))
-	if err != nil {
-		return nil, err
-	}
+	dinfo := pstore.PeerInfo{ID: p, Addrs: []ma.Multiaddr{destaddr}}
 
-	destp2p = destaddr.Encapsulate(destp2p)
-
-	d.Relay().host.Peerstore().AddAddrs(rinfo.ID, rinfo.Addrs, pstore.TempAddrTTL)
-
-	return d.Relay().Dial(ctx, rinfo.ID, destp2p)
+	return d.Relay().Dial(ctx, *rinfo, dinfo)
 }
 
 func (d *Dialer) Matches(a ma.Multiaddr) bool {

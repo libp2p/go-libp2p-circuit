@@ -3,6 +3,8 @@ package relay
 import (
 	"net"
 
+	pb "github.com/libp2p/go-libp2p-circuit/pb"
+
 	peer "github.com/libp2p/go-libp2p-peer"
 	tpt "github.com/libp2p/go-libp2p-transport"
 	filter "github.com/libp2p/go-maddr-filter"
@@ -26,20 +28,20 @@ func (r *Relay) Matches(a ma.Multiaddr) bool {
 }
 
 func (l *RelayListener) Accept() (tpt.Conn, error) {
-	ctx := l.Relay().ctx
 	select {
 	case c := <-l.incoming:
-		log.Infof("accepted relay connection: %s", c.ID())
-		s := RelayStatus{
-			Code:    StatusOK,
-			Message: "OK",
-		}
-		if err := s.WriteTo(c); err != nil {
+		err := l.Relay().writeResponse(c.Stream, pb.CircuitRelay_SUCCESS)
+		if err != nil {
+			log.Debugf("error writing relay response: %s", err.Error())
+			c.Stream.Close()
 			return nil, err
 		}
+
+		log.Infof("accepted relay connection: %s", c.ID())
+
 		return c, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
+	case <-l.ctx.Done():
+		return nil, l.ctx.Err()
 	}
 }
 

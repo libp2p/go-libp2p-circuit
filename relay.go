@@ -7,20 +7,21 @@ import (
 	"sync"
 	"time"
 
+	pb "github.com/libp2p/go-libp2p-circuit/pb"
+
+	ggio "github.com/gogo/protobuf/io"
 	logging "github.com/ipfs/go-log"
 	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
-	ma "github.com/multiformats/go-multiaddr"
 )
 
 var log = logging.Logger("relay")
 
-const HopID = "/libp2p/relay/circuit/1.0.0/hop"
-const StopID = "/libp2p/relay/circuit/1.0.0/stop"
+const ProtoID = "/libp2p/circuit/relay/0.1.0"
 
-const maxAddrLen = 1024
+const maxMessageSize = 4096
 
 var RelayAcceptTimeout = time.Minute
 
@@ -30,6 +31,7 @@ type Relay struct {
 	self peer.ID
 
 	active bool
+	hop    bool
 
 	incoming chan *Conn
 
@@ -44,6 +46,14 @@ var (
 	OptHop    = RelayOpt(1)
 )
 
+type RelayError struct {
+	Code int32
+}
+
+func (e RelayError) Error() string {
+	return fmt.Sprintf("error opening relay circuit: %s (%d)", pb.CircuitRelay_Status_name[e.Code], e.Code)
+}
+
 func NewRelay(ctx context.Context, h host.Host, opts ...RelayOpt) (*Relay, error) {
 	r := &Relay{
 		host:     h,
@@ -52,137 +62,155 @@ func NewRelay(ctx context.Context, h host.Host, opts ...RelayOpt) (*Relay, error
 		incoming: make(chan *Conn),
 	}
 
-	h.SetStreamHandler(StopID, r.HandleNewStopStream)
-
 	for _, opt := range opts {
 		switch opt {
 		case OptActive:
 			r.active = true
 		case OptHop:
-			h.SetStreamHandler(HopID, r.HandleNewHopStream)
+			r.hop = true
 		default:
 			return nil, fmt.Errorf("unrecognized option: %d", opt)
 		}
 	}
 
+	h.SetStreamHandler(ProtoID, r.handleNewStream)
+
 	return r, nil
 }
 
-func (r *Relay) Dial(ctx context.Context, relay peer.ID, dest ma.Multiaddr) (*Conn, error) {
-	s, err := r.host.NewStream(ctx, relay, HopID)
+func (r *Relay) Dial(ctx context.Context, relay pstore.PeerInfo, dest pstore.PeerInfo) (*Conn, error) {
+	err := r.host.Connect(ctx, relay)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := writeLpMultiaddr(s, dest); err != nil {
+	s, err := r.host.NewStream(ctx, relay.ID, ProtoID)
+	if err != nil {
 		return nil, err
 	}
 
-	var stat RelayStatus
-	if err := stat.ReadFrom(s); err != nil {
+	rd := ggio.NewDelimitedReader(s, maxMessageSize)
+	wr := ggio.NewDelimitedWriter(s)
+
+	var msg pb.CircuitRelay
+
+	msg.Type = pb.CircuitRelay_HOP.Enum()
+	msg.SrcPeer = peerInfoToPeer(pstore.PeerInfo{r.self, r.host.Addrs()})
+	msg.DstPeer = peerInfoToPeer(dest)
+
+	err = wr.WriteMsg(&msg)
+	if err != nil {
+		s.Close()
 		return nil, err
 	}
 
-	if stat.Code != StatusOK {
-		return nil, &stat
+	msg.Reset()
+
+	err = rd.ReadMsg(&msg)
+	if err != nil {
+		s.Close()
+		return nil, err
+	}
+
+	if msg.GetType() != pb.CircuitRelay_STATUS {
+		s.Close()
+		return nil, fmt.Errorf("unexpected relay response; not a status message (%d)", msg.GetType())
+	}
+
+	if msg.GetCode() != pb.CircuitRelay_SUCCESS {
+		s.Close()
+		return nil, RelayError{int32(msg.GetCode())}
 	}
 
 	return &Conn{Stream: s}, nil
 }
 
-func (r *Relay) HandleNewStopStream(s inet.Stream) {
-	log.Infof("new stop stream from: %s", s.Conn().RemotePeer())
-	status := r.handleNewStopStream(s)
-	if status != nil {
-		if err := status.WriteTo(s); err != nil {
-			log.Info("problem writing error status:", err)
-		}
-		s.Close()
+func (r *Relay) handleNewStream(s inet.Stream) {
+	log.Infof("new relay stream from: %s", s.Conn().RemotePeer())
+
+	rd := ggio.NewDelimitedReader(s, maxMessageSize)
+
+	var msg pb.CircuitRelay
+
+	err := rd.ReadMsg(&msg)
+	if err != nil {
+		r.handleError(s, pb.CircuitRelay_MALFORMED_MESSAGE)
 		return
 	}
+
+	switch msg.GetType() {
+	case pb.CircuitRelay_HOP:
+		r.handleHopStream(s, &msg)
+	case pb.CircuitRelay_STOP:
+		r.handleStopStream(s, &msg)
+	case pb.CircuitRelay_CAN_HOP:
+		r.handleCanHop(s, &msg)
+	default:
+		log.Warningf("unexpected relay handshake: %d", msg.GetType())
+		r.handleError(s, pb.CircuitRelay_MALFORMED_MESSAGE)
+	}
 }
 
-func (r *Relay) handleNewStopStream(s inet.Stream) *RelayStatus {
-	info, err := r.readInfo(s)
+func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
+	if !r.hop {
+		r.handleError(s, pb.CircuitRelay_HOP_CANT_SPEAK_RELAY)
+		return
+	}
+
+	src, err := peerToPeerInfo(msg.GetSrcPeer())
 	if err != nil {
-		return &RelayStatus{
-			Code:    StatusDstAddrErr,
-			Message: err.Error(),
-		}
+		r.handleError(s, pb.CircuitRelay_HOP_SRC_MULTIADDR_INVALID)
+		return
 	}
 
-	log.Infof("relay connection from: %s", info.ID)
-	select {
-	case r.incoming <- &Conn{Stream: s, remoteMaddr: info.Addrs[0], remotePeer: info.ID}:
-		return nil
-	case <-time.After(RelayAcceptTimeout):
-		return &RelayStatus{
-			Code:    StatusDstRelayRefused,
-			Message: "timed out waiting for relay to be accepted",
-		}
+	if src.ID != s.Conn().RemotePeer() {
+		r.handleError(s, pb.CircuitRelay_HOP_SRC_MULTIADDR_INVALID)
+		return
 	}
-}
 
-func (r *Relay) HandleNewHopStream(s inet.Stream) {
-	log.Infof("new hop stream from: %s", s.Conn().RemotePeer())
-	status := r.handleNewHopStream(s)
-	if status != nil {
-		if err := status.WriteTo(s); err != nil {
-			log.Debugf("problem writing error status back: %s", err)
-			s.Close()
+	dst, err := peerToPeerInfo(msg.GetDstPeer())
+	if err != nil {
+		r.handleError(s, pb.CircuitRelay_HOP_DST_MULTIADDR_INVALID)
+		return
+	}
+
+	if dst.ID == r.self {
+		r.handleError(s, pb.CircuitRelay_HOP_CANT_RELAY_TO_SELF)
+		return
+	}
+
+	ctp := r.host.Network().ConnsToPeer(dst.ID)
+	if len(ctp) == 0 {
+		if !r.active {
+			r.handleError(s, pb.CircuitRelay_HOP_NO_CONN_TO_DST)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.ctx, time.Second*10)
+		defer cancel()
+		err = r.host.Connect(ctx, dst)
+		if err != nil {
+			log.Debugf("error opening relay connection to %s: %s", dst.ID.Pretty(), err.Error())
+			r.handleError(s, pb.CircuitRelay_HOP_CANT_DIAL_DST)
 			return
 		}
 	}
-}
 
-func (r *Relay) handleNewHopStream(s inet.Stream) *RelayStatus {
-	info, err := r.readInfo(s)
+	bs, err := r.host.NewStream(r.ctx, dst.ID, ProtoID)
 	if err != nil {
-		return &RelayStatus{
-			Code:    StatusRelayAddrErr,
-			Message: err.Error(),
-		}
+		log.Debugf("error opening relay stream to %s: %s", dst.ID.Pretty(), err.Error())
+		r.handleError(s, pb.CircuitRelay_HOP_CANT_OPEN_DST_STREAM)
+		return
 	}
 
-	if info.ID == r.self {
-		return &RelayStatus{
-			Code:    StatusRelayHopToSelf,
-			Message: "relay hop attempted to self",
-		}
-	}
-
-	ctp := r.host.Network().ConnsToPeer(info.ID)
-	if len(ctp) == 0 {
-		return &RelayStatus{
-			Code:    StatusRelayNotConnected,
-			Message: "refusing to make new connection for relay",
-		}
-	}
-
-	bs, err := r.host.NewStream(r.ctx, info.ID, StopID)
+	err = r.writeResponse(s, pb.CircuitRelay_SUCCESS)
 	if err != nil {
-		return &RelayStatus{
-			Code:    StatusRelayStreamFailed,
-			Message: err.Error(),
-		}
+		log.Debugf("error writing relay response: %s", err.Error())
+		s.Close()
+		return
 	}
 
-	// TODO: add helper method 'PeerID to multiaddr'
-	paddr, err := ma.NewMultiaddr("/ipfs/" + s.Conn().RemotePeer().Pretty())
-	if err != nil {
-		return &RelayStatus{
-			Code:    StatusRelayAddrErr,
-			Message: err.Error(),
-		}
-	}
-
-	p2pa := s.Conn().RemoteMultiaddr().Encapsulate(paddr)
-	if err := writeLpMultiaddr(bs, p2pa); err != nil {
-		return &RelayStatus{
-			Code:    StatusRelayStreamFailed,
-			Message: err.Error(),
-		}
-	}
+	log.Infof("relaying connection between %s and %s", src.ID.Pretty(), dst.ID.Pretty())
 
 	go func() {
 		_, err := io.Copy(s, bs)
@@ -191,6 +219,7 @@ func (r *Relay) handleNewHopStream(s inet.Stream) *RelayStatus {
 		}
 		s.Close()
 	}()
+
 	go func() {
 		_, err := io.Copy(bs, s)
 		if err != io.EOF && err != nil {
@@ -198,20 +227,63 @@ func (r *Relay) handleNewHopStream(s inet.Stream) *RelayStatus {
 		}
 		bs.Close()
 	}()
-
-	return nil
 }
 
-func (r *Relay) readInfo(s inet.Stream) (*pstore.PeerInfo, error) {
-	addr, err := readLpMultiaddr(s)
-	if err != nil {
-		return nil, err
+func (r *Relay) handleStopStream(s inet.Stream, msg *pb.CircuitRelay) {
+	src, err := peerToPeerInfo(msg.GetSrcPeer())
+	if err != nil || len(src.Addrs) == 0 {
+		r.handleError(s, pb.CircuitRelay_STOP_SRC_MULTIADDR_INVALID)
+		return
 	}
 
-	info, err := pstore.InfoFromP2pAddr(addr)
-	if err != nil {
-		return nil, err
+	dst, err := peerToPeerInfo(msg.GetDstPeer())
+	if err != nil || dst.ID != r.self {
+		r.handleError(s, pb.CircuitRelay_STOP_DST_MULTIADDR_INVALID)
+		return
 	}
 
-	return info, nil
+	log.Infof("relay connection from: %s", src.ID)
+
+	r.host.Peerstore().AddAddrs(src.ID, src.Addrs, pstore.TempAddrTTL)
+
+	select {
+	case r.incoming <- &Conn{Stream: s, remote: src}:
+	case <-time.After(RelayAcceptTimeout):
+		r.handleError(s, pb.CircuitRelay_STOP_RELAY_REFUSED)
+	}
+}
+
+func (r *Relay) handleCanHop(s inet.Stream, msg *pb.CircuitRelay) {
+	var err error
+
+	if r.hop {
+		err = r.writeResponse(s, pb.CircuitRelay_SUCCESS)
+	} else {
+		err = r.writeResponse(s, pb.CircuitRelay_HOP_CANT_SPEAK_RELAY)
+	}
+
+	if err != nil {
+		log.Debugf("error writing relay response: %s", err.Error())
+	}
+
+	s.Close()
+}
+
+func (r *Relay) handleError(s inet.Stream, code pb.CircuitRelay_Status) {
+	log.Warningf("relay error: %s (%d)", pb.CircuitRelay_Status_name[int32(code)], code)
+	err := r.writeResponse(s, code)
+	if err != nil {
+		log.Debugf("error writing relay response: %s", err.Error())
+	}
+	s.Close()
+}
+
+func (r *Relay) writeResponse(s inet.Stream, code pb.CircuitRelay_Status) error {
+	wr := ggio.NewDelimitedWriter(s)
+
+	var msg pb.CircuitRelay
+	msg.Type = pb.CircuitRelay_STATUS.Enum()
+	msg.Code = code.Enum()
+
+	return wr.WriteMsg(&msg)
 }
