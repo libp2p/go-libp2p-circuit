@@ -19,32 +19,32 @@ func init() {
 	ma.AddProtocol(RelayMaddrProtocol)
 }
 
-var _ tpt.Transport = (*Transport)(nil)
+var _ tpt.Transport = (*RelayTransport)(nil)
 
-type Transport Relay
+type RelayTransport Relay
 
-func (t *Transport) Relay() *Relay {
+func (t *RelayTransport) Relay() *Relay {
 	return (*Relay)(t)
 }
 
-func (r *Relay) Transport() *Transport {
-	return (*Transport)(r)
+func (r *Relay) Transport() *RelayTransport {
+	return (*RelayTransport)(r)
 }
 
-func (t *Transport) Dialer(laddr ma.Multiaddr, opts ...tpt.DialOpt) (tpt.Dialer, error) {
+func (t *RelayTransport) Dialer(laddr ma.Multiaddr, opts ...tpt.DialOpt) (tpt.Dialer, error) {
 	if !t.Matches(laddr) {
 		return nil, fmt.Errorf("%s is not a relay address", laddr)
 	}
 	return t.Relay().Dialer(), nil
 }
 
-func (t *Transport) Listen(laddr ma.Multiaddr) (tpt.Listener, error) {
+func (t *RelayTransport) Listen(laddr ma.Multiaddr) (tpt.Listener, error) {
 	if !t.Matches(laddr) {
 		return nil, fmt.Errorf("%s is not a relay address", laddr)
 	}
-	return t.Relay().Listener()
+	return t.Relay().Listener(), nil
 }
 
-func (t *Transport) Matches(a ma.Multiaddr) bool {
+func (t *RelayTransport) Matches(a ma.Multiaddr) bool {
 	return t.Relay().Dialer().Matches(a)
 }

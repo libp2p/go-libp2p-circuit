@@ -20,8 +20,8 @@ func (l *RelayListener) Relay() *Relay {
 	return (*Relay)(l)
 }
 
-func (r *Relay) Listener() (tpt.Listener, error) {
-	return (*RelayListener)(r), nil
+func (r *Relay) Listener() *RelayListener {
+	return (*RelayListener)(r)
 }
 
 func (l *RelayListener) Accept() (tpt.Conn, error) {

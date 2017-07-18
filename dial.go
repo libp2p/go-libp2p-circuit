@@ -9,23 +9,23 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-var _ tpt.Dialer = (*Dialer)(nil)
+var _ tpt.Dialer = (*RelayDialer)(nil)
 
-type Dialer Relay
+type RelayDialer Relay
 
-func (d *Dialer) Relay() *Relay {
+func (d *RelayDialer) Relay() *Relay {
 	return (*Relay)(d)
 }
 
-func (r *Relay) Dialer() *Dialer {
-	return (*Dialer)(r)
+func (r *Relay) Dialer() *RelayDialer {
+	return (*RelayDialer)(r)
 }
 
-func (d *Dialer) Dial(a ma.Multiaddr) (tpt.Conn, error) {
+func (d *RelayDialer) Dial(a ma.Multiaddr) (tpt.Conn, error) {
 	return d.DialContext(d.ctx, a)
 }
 
-func (d *Dialer) DialContext(ctx context.Context, a ma.Multiaddr) (tpt.Conn, error) {
+func (d *RelayDialer) DialContext(ctx context.Context, a ma.Multiaddr) (tpt.Conn, error) {
 	if !d.Matches(a) {
 		return nil, fmt.Errorf("%s is not a relay address", a)
 	}
@@ -55,7 +55,7 @@ func (d *Dialer) DialContext(ctx context.Context, a ma.Multiaddr) (tpt.Conn, err
 	return d.Relay().DialPeer(ctx, *rinfo, *dinfo)
 }
 
-func (d *Dialer) Matches(a ma.Multiaddr) bool {
+func (d *RelayDialer) Matches(a ma.Multiaddr) bool {
 	_, err := a.ValueForProtocol(P_CIRCUIT)
 	return err == nil
 }

@@ -74,11 +74,7 @@ func TestBasicRelay(t *testing.T) {
 
 	msg := []byte("relay works!")
 	go func() {
-		list, err := r3.Listener()
-		if err != nil {
-			t.Error(err)
-			return
-		}
+		list := r3.Listener()
 
 		con, err := list.Accept()
 		if err != nil {
@@ -143,11 +139,7 @@ func TestBasicRelayDial(t *testing.T) {
 
 	msg := []byte("relay works!")
 	go func() {
-		list, err := r3.Listener()
-		if err != nil {
-			t.Error(err)
-			return
-		}
+		list := r3.Listener()
 
 		con, err := list.Accept()
 		if err != nil {
@@ -302,11 +294,7 @@ func TestActiveRelay(t *testing.T) {
 
 	msg := []byte("relay works!")
 	go func() {
-		list, err := r3.Listener()
-		if err != nil {
-			t.Error(err)
-			return
-		}
+		list := r3.Listener()
 
 		con, err := list.Accept()
 		if err != nil {
