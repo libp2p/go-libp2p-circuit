@@ -42,7 +42,7 @@ func (c *Conn) RemoteAddr() net.Addr {
 }
 
 func (c *Conn) RemoteMultiaddr() ma.Multiaddr {
-	a, err := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s/p2p-circuit/ipfs/%s", c.remote.ID.Pretty(), c.Conn().RemotePeer().Pretty()))
+	a, err := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s/p2p-circuit/ipfs/%s", c.Conn().RemotePeer().Pretty(), c.remote.ID.Pretty()))
 	if err != nil {
 		panic(err)
 	}
