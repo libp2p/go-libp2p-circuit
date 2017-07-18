@@ -100,7 +100,7 @@ func TestBasicRelay(t *testing.T) {
 	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
-	con, err := r1.Dial(rctx, rinfo, dinfo)
+	con, err := r1.DialPeer(rctx, rinfo, dinfo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestBasicRelayDial(t *testing.T) {
 		con.Close()
 	}()
 
-	relayaddr, err := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s/p2p-circuit", hosts[1].ID().Pretty()))
+	addr, err := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s/p2p-circuit/ipfs/%s", hosts[1].ID().Pretty(), hosts[2].ID().Pretty()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestBasicRelayDial(t *testing.T) {
 	defer rcancel()
 
 	d := r1.Dialer()
-	con, err := d.DialPeer(rctx, hosts[2].ID(), relayaddr)
+	con, err := d.DialContext(rctx, addr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +219,7 @@ func TestRelayThroughNonHop(t *testing.T) {
 	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
-	_, err = r1.Dial(rctx, rinfo, dinfo)
+	_, err = r1.DialPeer(rctx, rinfo, dinfo)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -260,7 +260,7 @@ func TestRelayNoDestConnection(t *testing.T) {
 	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
-	_, err = r1.Dial(rctx, rinfo, dinfo)
+	_, err = r1.DialPeer(rctx, rinfo, dinfo)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -328,7 +328,7 @@ func TestActiveRelay(t *testing.T) {
 	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
-	con, err := r1.Dial(rctx, rinfo, dinfo)
+	con, err := r1.DialPeer(rctx, rinfo, dinfo)
 	if err != nil {
 		t.Fatal(err)
 	}

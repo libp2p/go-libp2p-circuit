@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	tpt "github.com/libp2p/go-libp2p-transport"
 	ma "github.com/multiformats/go-multiaddr"
 )
+
+var _ tpt.Dialer = (*Dialer)(nil)
 
 type Dialer Relay
 
@@ -20,7 +21,11 @@ func (r *Relay) Dialer() *Dialer {
 	return (*Dialer)(r)
 }
 
-func (d *Dialer) DialPeer(ctx context.Context, p peer.ID, a ma.Multiaddr) (tpt.Conn, error) {
+func (d *Dialer) Dial(a ma.Multiaddr) (tpt.Conn, error) {
+	return d.DialContext(d.ctx, a)
+}
+
+func (d *Dialer) DialContext(ctx context.Context, a ma.Multiaddr) (tpt.Conn, error) {
 	if !d.Matches(a) {
 		return nil, fmt.Errorf("%s is not a relay address", a)
 	}
@@ -42,9 +47,12 @@ func (d *Dialer) DialPeer(ctx context.Context, p peer.ID, a ma.Multiaddr) (tpt.C
 		return nil, err
 	}
 
-	dinfo := pstore.PeerInfo{ID: p, Addrs: []ma.Multiaddr{destaddr}}
+	dinfo, err := pstore.InfoFromP2pAddr(destaddr)
+	if err != nil {
+		return nil, err
+	}
 
-	return d.Relay().Dial(ctx, *rinfo, dinfo)
+	return d.Relay().DialPeer(ctx, *rinfo, *dinfo)
 }
 
 func (d *Dialer) Matches(a ma.Multiaddr) bool {
