@@ -80,7 +80,9 @@ func NewRelay(ctx context.Context, h host.Host, opts ...RelayOpt) (*Relay, error
 
 func (r *Relay) DialPeer(ctx context.Context, relay pstore.PeerInfo, dest pstore.PeerInfo) (*Conn, error) {
 
-	r.host.Peerstore().AddAddrs(relay.ID, relay.Addrs, pstore.TempAddrTTL)
+	if len(relay.Addrs) > 0 {
+		r.host.Peerstore().AddAddrs(relay.ID, relay.Addrs, pstore.TempAddrTTL)
+	}
 
 	s, err := r.host.NewStream(ctx, relay.ID, ProtoID)
 	if err != nil {
@@ -185,7 +187,9 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 		return
 	}
 
-	r.host.Peerstore().AddAddrs(dst.ID, dst.Addrs, pstore.TempAddrTTL)
+	if len(dst.Addrs) > 0 {
+		r.host.Peerstore().AddAddrs(dst.ID, dst.Addrs, pstore.TempAddrTTL)
+	}
 
 	ctx, cancel := context.WithTimeout(r.ctx, HopConnectTimeout)
 	defer cancel()
