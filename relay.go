@@ -23,7 +23,7 @@ const ProtoID = "/libp2p/circuit/relay/0.1.0"
 const maxMessageSize = 4096
 
 var RelayAcceptTimeout = time.Minute
-var HopConnectTimeout = 2 * time.Second
+var HopConnectTimeout = 10 * time.Second
 
 type Relay struct {
 	host host.Host
