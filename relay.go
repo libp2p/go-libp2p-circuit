@@ -120,7 +120,7 @@ func (r *Relay) DialPeer(ctx context.Context, relay pstore.PeerInfo, dest pstore
 		return nil, RelayError{msg.GetCode()}
 	}
 
-	return &Conn{Stream: s, remote: dest}, nil
+	return &Conn{Stream: s, remote: dest, transport: r.Transport()}, nil
 }
 
 func (r *Relay) handleNewStream(s inet.Stream) {
@@ -283,7 +283,7 @@ func (r *Relay) handleStopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	r.host.Peerstore().AddAddrs(src.ID, src.Addrs, pstore.TempAddrTTL)
 
 	select {
-	case r.incoming <- &Conn{Stream: s, remote: src}:
+	case r.incoming <- &Conn{Stream: s, remote: src, transport: r.Transport()}:
 	case <-time.After(RelayAcceptTimeout):
 		r.handleError(s, pb.CircuitRelay_STOP_RELAY_REFUSED)
 	}

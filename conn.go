@@ -16,7 +16,8 @@ import (
 
 type Conn struct {
 	inet.Stream
-	remote pstore.PeerInfo
+	remote    pstore.PeerInfo
+	transport tpt.Transport
 }
 
 var _ iconn.Conn = (*Conn)(nil)
@@ -63,7 +64,7 @@ func (c *Conn) LocalAddr() net.Addr {
 }
 
 func (c *Conn) Transport() tpt.Transport {
-	panic("does anyone really call this?")
+	return c.transport
 }
 
 func (c *Conn) LocalPeer() peer.ID {
