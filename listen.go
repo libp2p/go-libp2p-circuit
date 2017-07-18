@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"fmt"
 	"net"
 
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
@@ -21,10 +22,6 @@ func (l *RelayListener) Relay() *Relay {
 
 func (r *Relay) Listener() (tpt.Listener, error) {
 	return (*RelayListener)(r), nil
-}
-
-func (r *Relay) Matches(a ma.Multiaddr) bool {
-	return false
 }
 
 func (l *RelayListener) Accept() (tpt.Conn, error) {
@@ -48,15 +45,22 @@ func (l *RelayListener) Accept() (tpt.Conn, error) {
 }
 
 func (l *RelayListener) Addr() net.Addr {
-	panic("oh no")
+	return &NetAddr{
+		Relay:  "any",
+		Remote: "any",
+	}
 }
 
 func (l *RelayListener) Multiaddr() ma.Multiaddr {
-	panic("oh no")
+	a, err := ma.NewMultiaddr(fmt.Sprintf("/p2p-circuit/ipfs/%s", l.self.Pretty()))
+	if err != nil {
+		panic(err)
+	}
+	return a
 }
 
 func (l *RelayListener) LocalPeer() peer.ID {
-	return l.Relay().self
+	return l.self
 }
 
 func (l *RelayListener) SetAddrFilters(f *filter.Filters) {
