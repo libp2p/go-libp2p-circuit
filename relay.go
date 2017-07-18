@@ -23,6 +23,7 @@ const ProtoID = "/libp2p/circuit/relay/0.1.0"
 const maxMessageSize = 4096
 
 var RelayAcceptTimeout = time.Minute
+var HopConnectTimeout = 2 * time.Second
 
 type Relay struct {
 	host host.Host
@@ -78,10 +79,8 @@ func NewRelay(ctx context.Context, h host.Host, opts ...RelayOpt) (*Relay, error
 }
 
 func (r *Relay) Dial(ctx context.Context, relay pstore.PeerInfo, dest pstore.PeerInfo) (*Conn, error) {
-	err := r.host.Connect(ctx, relay)
-	if err != nil {
-		return nil, err
-	}
+
+	r.host.Peerstore().AddAddrs(relay.ID, relay.Addrs, pstore.TempAddrTTL)
 
 	s, err := r.host.NewStream(ctx, relay.ID, ProtoID)
 	if err != nil {
@@ -180,26 +179,21 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 
 	// open stream
 	ctp := r.host.Network().ConnsToPeer(dst.ID)
-	if len(ctp) == 0 {
-		if !r.active {
-			r.handleError(s, pb.CircuitRelay_HOP_NO_CONN_TO_DST)
-			return
-		}
 
-		ctx, cancel := context.WithTimeout(r.ctx, time.Second*10)
-		defer cancel()
-		err = r.host.Connect(ctx, dst)
-		if err != nil {
-			log.Debugf("error opening relay connection to %s: %s", dst.ID.Pretty(), err.Error())
-			r.handleError(s, pb.CircuitRelay_HOP_CANT_DIAL_DST)
-			return
-		}
+	if len(ctp) == 0 && !r.active {
+		r.handleError(s, pb.CircuitRelay_HOP_NO_CONN_TO_DST)
+		return
 	}
 
-	bs, err := r.host.NewStream(r.ctx, dst.ID, ProtoID)
+	r.host.Peerstore().AddAddrs(dst.ID, dst.Addrs, pstore.TempAddrTTL)
+
+	ctx, cancel := context.WithTimeout(r.ctx, HopConnectTimeout)
+	defer cancel()
+
+	bs, err := r.host.NewStream(ctx, dst.ID, ProtoID)
 	if err != nil {
 		log.Debugf("error opening relay stream to %s: %s", dst.ID.Pretty(), err.Error())
-		r.handleError(s, pb.CircuitRelay_HOP_CANT_OPEN_DST_STREAM)
+		r.handleError(s, pb.CircuitRelay_HOP_CANT_DIAL_DST)
 		return
 	}
 
