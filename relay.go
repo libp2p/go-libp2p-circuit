@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sync"
 	"time"
 
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
@@ -34,9 +33,6 @@ type Relay struct {
 	hop    bool
 
 	incoming chan *Conn
-
-	arLk         sync.Mutex
-	activeRelays []*Conn
 }
 
 type RelayOpt int
