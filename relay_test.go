@@ -55,6 +55,8 @@ func TestBasicRelay(t *testing.T) {
 	connect(t, hosts[0], hosts[1])
 	connect(t, hosts[1], hosts[2])
 
+	time.Sleep(10 * time.Millisecond)
+
 	r1, err := NewRelay(ctx, hosts[0])
 	if err != nil {
 		t.Fatal(err)
@@ -86,7 +88,7 @@ func TestBasicRelay(t *testing.T) {
 
 		_, err = con.Write(msg)
 		if err != nil {
-			t.Error("failed to write", err)
+			t.Error(err)
 			return
 		}
 		con.Close()
@@ -95,7 +97,7 @@ func TestBasicRelay(t *testing.T) {
 	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
 	dinfo := hosts[2].Peerstore().PeerInfo(hosts[2].ID())
 
-	rctx, rcancel := context.WithTimeout(ctx, 10*time.Second)
+	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
 	con, err := r1.Dial(rctx, rinfo, dinfo)
@@ -122,6 +124,8 @@ func TestBasicRelayDial(t *testing.T) {
 	connect(t, hosts[0], hosts[1])
 	connect(t, hosts[1], hosts[2])
 
+	time.Sleep(10 * time.Millisecond)
+
 	r1, err := NewRelay(ctx, hosts[0])
 	if err != nil {
 		t.Fatal(err)
@@ -153,7 +157,7 @@ func TestBasicRelayDial(t *testing.T) {
 
 		_, err = con.Write(msg)
 		if err != nil {
-			t.Error("failed to write", err)
+			t.Error(err)
 			return
 		}
 		con.Close()
@@ -164,7 +168,7 @@ func TestBasicRelayDial(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rctx, rcancel := context.WithTimeout(ctx, 10*time.Second)
+	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
 	d := r1.Dialer()
@@ -192,6 +196,8 @@ func TestRelayThroughNonHop(t *testing.T) {
 	connect(t, hosts[0], hosts[1])
 	connect(t, hosts[1], hosts[2])
 
+	time.Sleep(10 * time.Millisecond)
+
 	r1, err := NewRelay(ctx, hosts[0])
 	if err != nil {
 		t.Fatal(err)
@@ -210,7 +216,7 @@ func TestRelayThroughNonHop(t *testing.T) {
 	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
 	dinfo := hosts[2].Peerstore().PeerInfo(hosts[2].ID())
 
-	rctx, rcancel := context.WithTimeout(ctx, 10*time.Second)
+	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
 	_, err = r1.Dial(rctx, rinfo, dinfo)
@@ -236,6 +242,8 @@ func TestRelayNoDestConnection(t *testing.T) {
 
 	connect(t, hosts[0], hosts[1])
 
+	time.Sleep(10 * time.Millisecond)
+
 	r1, err := NewRelay(ctx, hosts[0])
 	if err != nil {
 		t.Fatal(err)
@@ -249,7 +257,7 @@ func TestRelayNoDestConnection(t *testing.T) {
 	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
 	dinfo := hosts[2].Peerstore().PeerInfo(hosts[2].ID())
 
-	rctx, rcancel := context.WithTimeout(ctx, 10*time.Second)
+	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
 	_, err = r1.Dial(rctx, rinfo, dinfo)
@@ -274,6 +282,8 @@ func TestActiveRelay(t *testing.T) {
 	hosts := getNetHosts(t, ctx, 3)
 
 	connect(t, hosts[0], hosts[1])
+
+	time.Sleep(10 * time.Millisecond)
 
 	r1, err := NewRelay(ctx, hosts[0])
 	if err != nil {
@@ -306,7 +316,7 @@ func TestActiveRelay(t *testing.T) {
 
 		_, err = con.Write(msg)
 		if err != nil {
-			t.Error("failed to write", err)
+			t.Error(err)
 			return
 		}
 		con.Close()
@@ -315,7 +325,7 @@ func TestActiveRelay(t *testing.T) {
 	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
 	dinfo := hosts[2].Peerstore().PeerInfo(hosts[2].ID())
 
-	rctx, rcancel := context.WithTimeout(ctx, 10*time.Second)
+	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
 	con, err := r1.Dial(rctx, rinfo, dinfo)
