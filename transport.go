@@ -4,11 +4,41 @@ import (
 	"context"
 	"fmt"
 
+	addrutil "github.com/libp2p/go-addr-util"
 	host "github.com/libp2p/go-libp2p-host"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	tpt "github.com/libp2p/go-libp2p-transport"
 	ma "github.com/multiformats/go-multiaddr"
 )
+
+const P_CIRCUIT = 290
+
+var Protocol = ma.Protocol{
+	Code:  P_CIRCUIT,
+	Size:  0,
+	Name:  "p2p-circuit",
+	VCode: ma.CodeToVarint(P_CIRCUIT),
+}
+
+func init() {
+	ma.AddProtocol(Protocol)
+
+	// Add dialer transport
+	const proto = "/ipfs/p2p-circuit/ipfs"
+	tps := addrutil.SupportedTransportStrings
+
+	err := addrutil.AddTransport(proto)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, tp := range tps {
+		err = addrutil.AddTransport(tp + proto)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
 
 var _ tpt.Transport = (*RelayTransport)(nil)
 
