@@ -1,23 +1,14 @@
 package relay
 
 import (
+	"context"
 	"fmt"
 
+	host "github.com/libp2p/go-libp2p-host"
+	swarm "github.com/libp2p/go-libp2p-swarm"
 	tpt "github.com/libp2p/go-libp2p-transport"
 	ma "github.com/multiformats/go-multiaddr"
 )
-
-const P_CIRCUIT = 290
-
-var RelayMaddrProtocol = ma.Protocol{
-	Code: P_CIRCUIT,
-	Name: "p2p-circuit",
-	Size: 0,
-}
-
-func init() {
-	ma.AddProtocol(RelayMaddrProtocol)
-}
 
 var _ tpt.Transport = (*RelayTransport)(nil)
 
@@ -47,4 +38,24 @@ func (t *RelayTransport) Listen(laddr ma.Multiaddr) (tpt.Listener, error) {
 
 func (t *RelayTransport) Matches(a ma.Multiaddr) bool {
 	return t.Relay().Dialer().Matches(a)
+}
+
+// AddRelayTransport constructs a relay and adds it as a transport to the host network.
+func AddRelayTransport(ctx context.Context, h host.Host, opts ...RelayOpt) error {
+	// the necessary methods are not part of the Network interface, only exported by Swarm
+	// TODO: generalize the network interface for adding tranports
+	n, ok := h.Network().(*swarm.Network)
+	if !ok {
+		return fmt.Errorf("%s is not a swarm network", h.Network())
+	}
+
+	s := n.Swarm()
+
+	r, err := NewRelay(ctx, h, opts...)
+	if err != nil {
+		return err
+	}
+
+	s.AddTransport(r.Transport())
+	return s.AddListenAddr(r.Listener().Multiaddr())
 }

@@ -56,6 +56,6 @@ func (d *RelayDialer) DialContext(ctx context.Context, a ma.Multiaddr) (tpt.Conn
 }
 
 func (d *RelayDialer) Matches(a ma.Multiaddr) bool {
-	_, err := a.ValueForProtocol(P_CIRCUIT)
+	_, err := a.ValueForProtocol(ma.P_CIRCUIT)
 	return err == nil
 }
