@@ -45,7 +45,10 @@ func TestRelayTransport(t *testing.T) {
 
 	msg := []byte("relay works!")
 	handler := func(s inet.Stream) {
-		s.Write(msg)
+		_, err := s.Write(msg)
+		if err != nil {
+			t.Error(err)
+		}
 		s.Close()
 	}
 
