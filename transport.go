@@ -76,7 +76,7 @@ func AddRelayTransport(ctx context.Context, h host.Host, opts ...RelayOpt) error
 	// TODO: generalize the network interface for adding tranports
 	n, ok := h.Network().(*swarm.Network)
 	if !ok {
-		return fmt.Errorf("%s is not a swarm network", h.Network())
+		return fmt.Errorf("%v is not a swarm network", h.Network())
 	}
 
 	s := n.Swarm()
