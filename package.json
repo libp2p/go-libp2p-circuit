@@ -114,6 +114,5 @@
   "license": "MIT",
   "name": "go-libp2p-circuit",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "0.1.0"
+  "version": "1.0.0"
 }
-
