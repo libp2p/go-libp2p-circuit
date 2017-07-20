@@ -267,7 +267,7 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 
 func (r *Relay) handleStopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	src, err := peerToPeerInfo(msg.GetSrcPeer())
-	if err != nil || len(src.Addrs) == 0 {
+	if err != nil {
 		r.handleError(s, pb.CircuitRelay_STOP_SRC_MULTIADDR_INVALID)
 		return
 	}
@@ -280,7 +280,9 @@ func (r *Relay) handleStopStream(s inet.Stream, msg *pb.CircuitRelay) {
 
 	log.Infof("relay connection from: %s", src.ID)
 
-	r.host.Peerstore().AddAddrs(src.ID, src.Addrs, pstore.TempAddrTTL)
+	if len(src.Addrs) > 0 {
+		r.host.Peerstore().AddAddrs(src.ID, src.Addrs, pstore.TempAddrTTL)
+	}
 
 	select {
 	case r.incoming <- &Conn{Stream: s, remote: src, transport: r.Transport()}:
