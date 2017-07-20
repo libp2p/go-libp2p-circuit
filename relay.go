@@ -4,25 +4,25 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sync"
 	"time"
+
+	pb "github.com/libp2p/go-libp2p-circuit/pb"
 
 	logging "github.com/ipfs/go-log"
 	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
-	ma "github.com/multiformats/go-multiaddr"
 )
 
 var log = logging.Logger("relay")
 
-const HopID = "/libp2p/relay/circuit/1.0.0/hop"
-const StopID = "/libp2p/relay/circuit/1.0.0/stop"
+const ProtoID = "/libp2p/circuit/relay/0.1.0"
 
-const maxAddrLen = 1024
+const maxMessageSize = 4096
 
 var RelayAcceptTimeout = time.Minute
+var HopConnectTimeout = 10 * time.Second
 
 type Relay struct {
 	host host.Host
@@ -30,11 +30,9 @@ type Relay struct {
 	self peer.ID
 
 	active bool
+	hop    bool
 
 	incoming chan *Conn
-
-	arLk         sync.Mutex
-	activeRelays []*Conn
 }
 
 type RelayOpt int
@@ -44,6 +42,14 @@ var (
 	OptHop    = RelayOpt(1)
 )
 
+type RelayError struct {
+	Code pb.CircuitRelay_Status
+}
+
+func (e RelayError) Error() string {
+	return fmt.Sprintf("error opening relay circuit: %s (%d)", pb.CircuitRelay_Status_name[int32(e.Code)], e.Code)
+}
+
 func NewRelay(ctx context.Context, h host.Host, opts ...RelayOpt) (*Relay, error) {
 	r := &Relay{
 		host:     h,
@@ -52,166 +58,270 @@ func NewRelay(ctx context.Context, h host.Host, opts ...RelayOpt) (*Relay, error
 		incoming: make(chan *Conn),
 	}
 
-	h.SetStreamHandler(StopID, r.HandleNewStopStream)
-
 	for _, opt := range opts {
 		switch opt {
 		case OptActive:
 			r.active = true
 		case OptHop:
-			h.SetStreamHandler(HopID, r.HandleNewHopStream)
+			r.hop = true
 		default:
 			return nil, fmt.Errorf("unrecognized option: %d", opt)
 		}
 	}
 
+	h.SetStreamHandler(ProtoID, r.handleNewStream)
+
 	return r, nil
 }
 
-func (r *Relay) Dial(ctx context.Context, relay peer.ID, dest ma.Multiaddr) (*Conn, error) {
-	s, err := r.host.NewStream(ctx, relay, HopID)
+func (r *Relay) DialPeer(ctx context.Context, relay pstore.PeerInfo, dest pstore.PeerInfo) (*Conn, error) {
+
+	if len(relay.Addrs) > 0 {
+		r.host.Peerstore().AddAddrs(relay.ID, relay.Addrs, pstore.TempAddrTTL)
+	}
+
+	s, err := r.host.NewStream(ctx, relay.ID, ProtoID)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := writeLpMultiaddr(s, dest); err != nil {
+	rd := newDelimitedReader(s, maxMessageSize)
+	wr := newDelimitedWriter(s)
+
+	var msg pb.CircuitRelay
+
+	msg.Type = pb.CircuitRelay_HOP.Enum()
+	msg.SrcPeer = peerInfoToPeer(r.host.Peerstore().PeerInfo(r.self))
+	msg.DstPeer = peerInfoToPeer(dest)
+
+	err = wr.WriteMsg(&msg)
+	if err != nil {
+		s.Close()
 		return nil, err
 	}
 
-	var stat RelayStatus
-	if err := stat.ReadFrom(s); err != nil {
+	msg.Reset()
+
+	err = rd.ReadMsg(&msg)
+	if err != nil {
+		s.Close()
 		return nil, err
 	}
 
-	if stat.Code != StatusOK {
-		return nil, &stat
+	if msg.GetType() != pb.CircuitRelay_STATUS {
+		s.Close()
+		return nil, fmt.Errorf("unexpected relay response; not a status message (%d)", msg.GetType())
 	}
 
-	return &Conn{Stream: s}, nil
+	if msg.GetCode() != pb.CircuitRelay_SUCCESS {
+		s.Close()
+		return nil, RelayError{msg.GetCode()}
+	}
+
+	return &Conn{Stream: s, remote: dest, transport: r.Transport()}, nil
 }
 
-func (r *Relay) HandleNewStopStream(s inet.Stream) {
-	log.Infof("new stop stream from: %s", s.Conn().RemotePeer())
-	status := r.handleNewStopStream(s)
-	if status != nil {
-		if err := status.WriteTo(s); err != nil {
-			log.Info("problem writing error status:", err)
-		}
+func (r *Relay) handleNewStream(s inet.Stream) {
+	log.Infof("new relay stream from: %s", s.Conn().RemotePeer())
+
+	rd := newDelimitedReader(s, maxMessageSize)
+
+	var msg pb.CircuitRelay
+
+	err := rd.ReadMsg(&msg)
+	if err != nil {
+		r.handleError(s, pb.CircuitRelay_MALFORMED_MESSAGE)
+		return
+	}
+
+	switch msg.GetType() {
+	case pb.CircuitRelay_HOP:
+		r.handleHopStream(s, &msg)
+	case pb.CircuitRelay_STOP:
+		r.handleStopStream(s, &msg)
+	case pb.CircuitRelay_CAN_HOP:
+		r.handleCanHop(s, &msg)
+	default:
+		log.Warningf("unexpected relay handshake: %d", msg.GetType())
+		r.handleError(s, pb.CircuitRelay_MALFORMED_MESSAGE)
+	}
+}
+
+func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
+	if !r.hop {
+		r.handleError(s, pb.CircuitRelay_HOP_CANT_SPEAK_RELAY)
+		return
+	}
+
+	src, err := peerToPeerInfo(msg.GetSrcPeer())
+	if err != nil {
+		r.handleError(s, pb.CircuitRelay_HOP_SRC_MULTIADDR_INVALID)
+		return
+	}
+
+	if src.ID != s.Conn().RemotePeer() {
+		r.handleError(s, pb.CircuitRelay_HOP_SRC_MULTIADDR_INVALID)
+		return
+	}
+
+	dst, err := peerToPeerInfo(msg.GetDstPeer())
+	if err != nil {
+		r.handleError(s, pb.CircuitRelay_HOP_DST_MULTIADDR_INVALID)
+		return
+	}
+
+	if dst.ID == r.self {
+		r.handleError(s, pb.CircuitRelay_HOP_CANT_RELAY_TO_SELF)
+		return
+	}
+
+	// open stream
+	ctp := r.host.Network().ConnsToPeer(dst.ID)
+
+	if len(ctp) == 0 && !r.active {
+		r.handleError(s, pb.CircuitRelay_HOP_NO_CONN_TO_DST)
+		return
+	}
+
+	if len(dst.Addrs) > 0 {
+		r.host.Peerstore().AddAddrs(dst.ID, dst.Addrs, pstore.TempAddrTTL)
+	}
+
+	ctx, cancel := context.WithTimeout(r.ctx, HopConnectTimeout)
+	defer cancel()
+
+	bs, err := r.host.NewStream(ctx, dst.ID, ProtoID)
+	if err != nil {
+		log.Debugf("error opening relay stream to %s: %s", dst.ID.Pretty(), err.Error())
+		r.handleError(s, pb.CircuitRelay_HOP_CANT_DIAL_DST)
+		return
+	}
+
+	// stop handshake
+	rd := newDelimitedReader(bs, maxMessageSize)
+	wr := newDelimitedWriter(bs)
+
+	msg.Type = pb.CircuitRelay_STOP.Enum()
+
+	err = wr.WriteMsg(msg)
+	if err != nil {
+		log.Debugf("error writing stop handshake: %s", err.Error())
+		bs.Close()
+		r.handleError(s, pb.CircuitRelay_HOP_CANT_OPEN_DST_STREAM)
+		return
+	}
+
+	msg.Reset()
+
+	err = rd.ReadMsg(msg)
+	if err != nil {
+		log.Debugf("error reading stop response: %s", err.Error())
+		bs.Close()
+		r.handleError(s, pb.CircuitRelay_HOP_CANT_OPEN_DST_STREAM)
+		return
+	}
+
+	if msg.GetType() != pb.CircuitRelay_STATUS {
+		log.Debugf("unexpected relay stop response: not a status message (%d)", msg.GetType())
+		bs.Close()
+		r.handleError(s, pb.CircuitRelay_HOP_CANT_OPEN_DST_STREAM)
+		return
+	}
+
+	if msg.GetCode() != pb.CircuitRelay_SUCCESS {
+		log.Debugf("relay stop failure: %d", msg.GetCode())
+		bs.Close()
+		r.handleError(s, msg.GetCode())
+		return
+	}
+
+	err = r.writeResponse(s, pb.CircuitRelay_SUCCESS)
+	if err != nil {
+		log.Debugf("error writing relay response: %s", err.Error())
+		bs.Close()
 		s.Close()
 		return
 	}
-}
 
-func (r *Relay) handleNewStopStream(s inet.Stream) *RelayStatus {
-	info, err := r.readInfo(s)
-	if err != nil {
-		return &RelayStatus{
-			Code:    StatusDstAddrErr,
-			Message: err.Error(),
-		}
-	}
-
-	log.Infof("relay connection from: %s", info.ID)
-	select {
-	case r.incoming <- &Conn{Stream: s, remoteMaddr: info.Addrs[0], remotePeer: info.ID}:
-		return nil
-	case <-time.After(RelayAcceptTimeout):
-		return &RelayStatus{
-			Code:    StatusDstRelayRefused,
-			Message: "timed out waiting for relay to be accepted",
-		}
-	}
-}
-
-func (r *Relay) HandleNewHopStream(s inet.Stream) {
-	log.Infof("new hop stream from: %s", s.Conn().RemotePeer())
-	status := r.handleNewHopStream(s)
-	if status != nil {
-		if err := status.WriteTo(s); err != nil {
-			log.Debugf("problem writing error status back: %s", err)
-			s.Close()
-			return
-		}
-	}
-}
-
-func (r *Relay) handleNewHopStream(s inet.Stream) *RelayStatus {
-	info, err := r.readInfo(s)
-	if err != nil {
-		return &RelayStatus{
-			Code:    StatusRelayAddrErr,
-			Message: err.Error(),
-		}
-	}
-
-	if info.ID == r.self {
-		return &RelayStatus{
-			Code:    StatusRelayHopToSelf,
-			Message: "relay hop attempted to self",
-		}
-	}
-
-	ctp := r.host.Network().ConnsToPeer(info.ID)
-	if len(ctp) == 0 {
-		return &RelayStatus{
-			Code:    StatusRelayNotConnected,
-			Message: "refusing to make new connection for relay",
-		}
-	}
-
-	bs, err := r.host.NewStream(r.ctx, info.ID, StopID)
-	if err != nil {
-		return &RelayStatus{
-			Code:    StatusRelayStreamFailed,
-			Message: err.Error(),
-		}
-	}
-
-	// TODO: add helper method 'PeerID to multiaddr'
-	paddr, err := ma.NewMultiaddr("/ipfs/" + s.Conn().RemotePeer().Pretty())
-	if err != nil {
-		return &RelayStatus{
-			Code:    StatusRelayAddrErr,
-			Message: err.Error(),
-		}
-	}
-
-	p2pa := s.Conn().RemoteMultiaddr().Encapsulate(paddr)
-	if err := writeLpMultiaddr(bs, p2pa); err != nil {
-		return &RelayStatus{
-			Code:    StatusRelayStreamFailed,
-			Message: err.Error(),
-		}
-	}
+	// relay connection
+	log.Infof("relaying connection between %s and %s", src.ID.Pretty(), dst.ID.Pretty())
 
 	go func() {
-		_, err := io.Copy(s, bs)
+		count, err := io.Copy(s, bs)
 		if err != io.EOF && err != nil {
 			log.Debugf("relay copy error: %s", err)
 		}
 		s.Close()
+		log.Debugf("relayed %d bytes from %s to %s", count, dst.ID.Pretty(), src.ID.Pretty())
 	}()
+
 	go func() {
-		_, err := io.Copy(bs, s)
+		count, err := io.Copy(bs, s)
 		if err != io.EOF && err != nil {
 			log.Debugf("relay copy error: %s", err)
 		}
 		bs.Close()
+		log.Debugf("relayed %d bytes from %s to %s", count, src.ID.Pretty(), dst.ID.Pretty())
 	}()
-
-	return nil
 }
 
-func (r *Relay) readInfo(s inet.Stream) (*pstore.PeerInfo, error) {
-	addr, err := readLpMultiaddr(s)
+func (r *Relay) handleStopStream(s inet.Stream, msg *pb.CircuitRelay) {
+	src, err := peerToPeerInfo(msg.GetSrcPeer())
 	if err != nil {
-		return nil, err
+		r.handleError(s, pb.CircuitRelay_STOP_SRC_MULTIADDR_INVALID)
+		return
 	}
 
-	info, err := pstore.InfoFromP2pAddr(addr)
-	if err != nil {
-		return nil, err
+	dst, err := peerToPeerInfo(msg.GetDstPeer())
+	if err != nil || dst.ID != r.self {
+		r.handleError(s, pb.CircuitRelay_STOP_DST_MULTIADDR_INVALID)
+		return
 	}
 
-	return info, nil
+	log.Infof("relay connection from: %s", src.ID)
+
+	if len(src.Addrs) > 0 {
+		r.host.Peerstore().AddAddrs(src.ID, src.Addrs, pstore.TempAddrTTL)
+	}
+
+	select {
+	case r.incoming <- &Conn{Stream: s, remote: src, transport: r.Transport()}:
+	case <-time.After(RelayAcceptTimeout):
+		r.handleError(s, pb.CircuitRelay_STOP_RELAY_REFUSED)
+	}
+}
+
+func (r *Relay) handleCanHop(s inet.Stream, msg *pb.CircuitRelay) {
+	var err error
+
+	if r.hop {
+		err = r.writeResponse(s, pb.CircuitRelay_SUCCESS)
+	} else {
+		err = r.writeResponse(s, pb.CircuitRelay_HOP_CANT_SPEAK_RELAY)
+	}
+
+	if err != nil {
+		log.Debugf("error writing relay response: %s", err.Error())
+	}
+
+	s.Close()
+}
+
+func (r *Relay) handleError(s inet.Stream, code pb.CircuitRelay_Status) {
+	log.Warningf("relay error: %s (%d)", pb.CircuitRelay_Status_name[int32(code)], code)
+	err := r.writeResponse(s, code)
+	if err != nil {
+		log.Debugf("error writing relay response: %s", err.Error())
+	}
+	s.Close()
+}
+
+func (r *Relay) writeResponse(s inet.Stream, code pb.CircuitRelay_Status) error {
+	wr := newDelimitedWriter(s)
+
+	var msg pb.CircuitRelay
+	msg.Type = pb.CircuitRelay_STATUS.Enum()
+	msg.Code = code.Enum()
+
+	return wr.WriteMsg(&msg)
 }

@@ -4,23 +4,28 @@ import (
 	"context"
 	"fmt"
 
-	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	tpt "github.com/libp2p/go-libp2p-transport"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-type Dialer Relay
+var _ tpt.Dialer = (*RelayDialer)(nil)
 
-func (d *Dialer) Relay() *Relay {
+type RelayDialer Relay
+
+func (d *RelayDialer) Relay() *Relay {
 	return (*Relay)(d)
 }
 
-func (r *Relay) Dialer() *Dialer {
-	return (*Dialer)(r)
+func (r *Relay) Dialer() *RelayDialer {
+	return (*RelayDialer)(r)
 }
 
-func (d *Dialer) DialPeer(ctx context.Context, p peer.ID, a ma.Multiaddr) (tpt.Conn, error) {
+func (d *RelayDialer) Dial(a ma.Multiaddr) (tpt.Conn, error) {
+	return d.DialContext(d.ctx, a)
+}
+
+func (d *RelayDialer) DialContext(ctx context.Context, a ma.Multiaddr) (tpt.Conn, error) {
 	if !d.Matches(a) {
 		return nil, fmt.Errorf("%s is not a relay address", a)
 	}
@@ -42,19 +47,15 @@ func (d *Dialer) DialPeer(ctx context.Context, p peer.ID, a ma.Multiaddr) (tpt.C
 		return nil, err
 	}
 
-	destp2p, err := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s", p.Pretty()))
+	dinfo, err := pstore.InfoFromP2pAddr(destaddr)
 	if err != nil {
 		return nil, err
 	}
 
-	destp2p = destaddr.Encapsulate(destp2p)
-
-	d.Relay().host.Peerstore().AddAddrs(rinfo.ID, rinfo.Addrs, pstore.TempAddrTTL)
-
-	return d.Relay().Dial(ctx, rinfo.ID, destp2p)
+	return d.Relay().DialPeer(ctx, *rinfo, *dinfo)
 }
 
-func (d *Dialer) Matches(a ma.Multiaddr) bool {
+func (d *RelayDialer) Matches(a ma.Multiaddr) bool {
 	_, err := a.ValueForProtocol(P_CIRCUIT)
 	return err == nil
 }

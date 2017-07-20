@@ -2,62 +2,98 @@ package relay
 
 import (
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"io"
 
+	pb "github.com/libp2p/go-libp2p-circuit/pb"
+
+	ggio "github.com/gogo/protobuf/io"
+	proto "github.com/gogo/protobuf/proto"
+	peer "github.com/libp2p/go-libp2p-peer"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
+	mh "github.com/multiformats/go-multihash"
 )
 
-type singleByteReader struct {
-	r io.Reader
-}
+func peerToPeerInfo(p *pb.CircuitRelay_Peer) (pstore.PeerInfo, error) {
+	if p == nil {
+		return pstore.PeerInfo{}, errors.New("nil peer")
+	}
 
-func (s *singleByteReader) ReadByte() (byte, error) {
-	var b [1]byte
-	n, err := s.r.Read(b[:])
+	h, err := mh.Cast(p.Id)
 	if err != nil {
-		return 0, err
-	}
-	if n == 0 {
-		return 0, io.ErrNoProgress
+		return pstore.PeerInfo{}, err
 	}
 
-	return b[0], nil
+	addrs := make([]ma.Multiaddr, len(p.Addrs))
+	for i := 0; i < len(addrs); i++ {
+		a, err := ma.NewMultiaddrBytes(p.Addrs[i])
+		if err != nil {
+			return pstore.PeerInfo{}, err
+		}
+		addrs[i] = a
+	}
+
+	return pstore.PeerInfo{ID: peer.ID(h), Addrs: addrs}, nil
 }
 
-func writeLpMultiaddr(w io.Writer, a ma.Multiaddr) error {
-	buf := make([]byte, binary.MaxVarintLen32+len(a.Bytes()))
-	n := binary.PutUvarint(buf, uint64(len(a.Bytes())))
-	n += copy(buf[n:], a.Bytes())
-	nw, err := w.Write(buf[:n])
+func peerInfoToPeer(pi pstore.PeerInfo) *pb.CircuitRelay_Peer {
+	addrs := make([][]byte, len(pi.Addrs))
+	for i := 0; i < len(addrs); i++ {
+		addrs[i] = pi.Addrs[i].Bytes()
+	}
+
+	p := new(pb.CircuitRelay_Peer)
+	p.Id = []byte(pi.ID)
+	p.Addrs = addrs
+
+	return p
+}
+
+type delimitedReader struct {
+	r   io.Reader
+	buf []byte
+}
+
+// The gogo protobuf NewDelimitedReader is buffered, which may eat up stream data.
+// So we need to implement a compatible delimited reader that reads unbuffered.
+// There is a slowdown from unbuffered reading: when reading the message
+// it can take multiple single byte Reads to read the length and another Read
+// to read the message payload.
+// However, this is not critical performance degradation as
+// - the reader is utilized to read one (dialer, stop) or two messages (hop) during
+//   the handshake, so it's a drop in the water for the connection lifetime.
+// - messages are small (max 4k) and the length fits in a couple of bytes,
+//   so overall we have at most three reads per message.
+func newDelimitedReader(r io.Reader, maxSize int) *delimitedReader {
+	return &delimitedReader{r: r, buf: make([]byte, maxSize)}
+}
+
+func (d *delimitedReader) ReadByte() (byte, error) {
+	buf := d.buf[:1]
+	_, err := d.r.Read(buf)
+	return buf[0], err
+}
+
+func (d *delimitedReader) ReadMsg(msg proto.Message) error {
+	mlen, err := binary.ReadUvarint(d)
 	if err != nil {
 		return err
 	}
-	if n != nw {
-		return fmt.Errorf("failed to write all bytes to writer")
+
+	if uint64(len(d.buf)) < mlen {
+		return errors.New("Message too large")
 	}
-	return nil
+
+	buf := d.buf[:mlen]
+	_, err = io.ReadFull(d.r, buf)
+	if err != nil {
+		return err
+	}
+
+	return proto.Unmarshal(buf, msg)
 }
 
-func readLpMultiaddr(r io.Reader) (ma.Multiaddr, error) {
-	l, err := binary.ReadUvarint(&singleByteReader{r})
-	if err != nil {
-		return nil, err
-	}
-
-	if l > maxAddrLen {
-		return nil, fmt.Errorf("address length was too long: %d > %d", l, maxAddrLen)
-	}
-
-	if l == 0 {
-		return nil, fmt.Errorf("zero length multiaddr is invalid")
-	}
-
-	buf := make([]byte, l)
-	_, err = io.ReadFull(r, buf)
-	if err != nil {
-		return nil, err
-	}
-
-	return ma.NewMultiaddrBytes(buf)
+func newDelimitedWriter(w io.Writer) ggio.WriteCloser {
+	return ggio.NewDelimitedWriter(w)
 }

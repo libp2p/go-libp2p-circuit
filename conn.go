@@ -8,6 +8,7 @@ import (
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
 	tpt "github.com/libp2p/go-libp2p-transport"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
@@ -15,8 +16,8 @@ import (
 
 type Conn struct {
 	inet.Stream
-	remoteMaddr ma.Multiaddr
-	remotePeer  peer.ID
+	remote    pstore.PeerInfo
+	transport tpt.Transport
 }
 
 var _ iconn.Conn = (*Conn)(nil)
@@ -37,12 +38,12 @@ func (n *NetAddr) String() string {
 func (c *Conn) RemoteAddr() net.Addr {
 	return &NetAddr{
 		Relay:  c.Conn().RemotePeer().Pretty(),
-		Remote: c.remotePeer.String(),
+		Remote: c.remote.ID.Pretty(),
 	}
 }
 
 func (c *Conn) RemoteMultiaddr() ma.Multiaddr {
-	a, err := ma.NewMultiaddr(fmt.Sprintf("%s/ipfs/%s/p2p-circuit/%s", c.remoteMaddr, c.remotePeer.Pretty(), c.Conn().RemotePeer()))
+	a, err := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s/p2p-circuit/ipfs/%s", c.Conn().RemotePeer().Pretty(), c.remote.ID.Pretty()))
 	if err != nil {
 		panic(err)
 	}
@@ -63,7 +64,7 @@ func (c *Conn) LocalAddr() net.Addr {
 }
 
 func (c *Conn) Transport() tpt.Transport {
-	panic("does anyone really call this?")
+	return c.transport
 }
 
 func (c *Conn) LocalPeer() peer.ID {
@@ -71,7 +72,7 @@ func (c *Conn) LocalPeer() peer.ID {
 }
 
 func (c *Conn) RemotePeer() peer.ID {
-	return c.remotePeer
+	return c.remote.ID
 }
 
 func (c *Conn) LocalPrivateKey() ic.PrivKey {
@@ -83,5 +84,5 @@ func (c *Conn) RemotePublicKey() ic.PubKey {
 }
 
 func (c *Conn) ID() string {
-	return "TODO: relay conn ID"
+	return iconn.ID(c)
 }

@@ -5,11 +5,13 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"strings"
 	"testing"
+	"time"
+
+	. "github.com/libp2p/go-libp2p-circuit"
+	pb "github.com/libp2p/go-libp2p-circuit/pb"
 
 	bhost "github.com/libp2p/go-libp2p-blankhost"
-	. "github.com/libp2p/go-libp2p-circuit"
 	host "github.com/libp2p/go-libp2p-host"
 	netutil "github.com/libp2p/go-libp2p-netutil"
 	ma "github.com/multiformats/go-multiaddr"
@@ -53,6 +55,8 @@ func TestBasicRelay(t *testing.T) {
 	connect(t, hosts[0], hosts[1])
 	connect(t, hosts[1], hosts[2])
 
+	time.Sleep(10 * time.Millisecond)
+
 	r1, err := NewRelay(ctx, hosts[0])
 	if err != nil {
 		t.Fatal(err)
@@ -70,11 +74,7 @@ func TestBasicRelay(t *testing.T) {
 
 	msg := []byte("relay works!")
 	go func() {
-		list, err := r3.Listener()
-		if err != nil {
-			t.Error(err)
-			return
-		}
+		list := r3.Listener()
 
 		con, err := list.Accept()
 		if err != nil {
@@ -84,18 +84,19 @@ func TestBasicRelay(t *testing.T) {
 
 		_, err = con.Write(msg)
 		if err != nil {
-			t.Error("failed to write", err)
+			t.Error(err)
 			return
 		}
 		con.Close()
 	}()
 
-	destma, err := ma.NewMultiaddr("/ipfs/" + hosts[2].ID().Pretty())
-	if err != nil {
-		t.Fatal(err)
-	}
+	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
+	dinfo := hosts[2].Peerstore().PeerInfo(hosts[2].ID())
 
-	con, err := r1.Dial(ctx, hosts[1].ID(), destma)
+	rctx, rcancel := context.WithTimeout(ctx, time.Second)
+	defer rcancel()
+
+	con, err := r1.DialPeer(rctx, rinfo, dinfo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,6 +120,8 @@ func TestBasicRelayDial(t *testing.T) {
 	connect(t, hosts[0], hosts[1])
 	connect(t, hosts[1], hosts[2])
 
+	time.Sleep(10 * time.Millisecond)
+
 	r1, err := NewRelay(ctx, hosts[0])
 	if err != nil {
 		t.Fatal(err)
@@ -136,11 +139,7 @@ func TestBasicRelayDial(t *testing.T) {
 
 	msg := []byte("relay works!")
 	go func() {
-		list, err := r3.Listener()
-		if err != nil {
-			t.Error(err)
-			return
-		}
+		list := r3.Listener()
 
 		con, err := list.Accept()
 		if err != nil {
@@ -150,19 +149,22 @@ func TestBasicRelayDial(t *testing.T) {
 
 		_, err = con.Write(msg)
 		if err != nil {
-			t.Error("failed to write", err)
+			t.Error(err)
 			return
 		}
 		con.Close()
 	}()
 
-	relayaddr, err := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s/p2p-circuit", hosts[1].ID().Pretty()))
+	addr, err := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s/p2p-circuit/ipfs/%s", hosts[1].ID().Pretty(), hosts[2].ID().Pretty()))
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	rctx, rcancel := context.WithTimeout(ctx, time.Second)
+	defer rcancel()
+
 	d := r1.Dialer()
-	con, err := d.DialPeer(ctx, hosts[2].ID(), relayaddr)
+	con, err := d.DialContext(rctx, addr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,6 +188,8 @@ func TestRelayThroughNonHop(t *testing.T) {
 	connect(t, hosts[0], hosts[1])
 	connect(t, hosts[1], hosts[2])
 
+	time.Sleep(10 * time.Millisecond)
+
 	r1, err := NewRelay(ctx, hosts[0])
 	if err != nil {
 		t.Fatal(err)
@@ -201,47 +205,24 @@ func TestRelayThroughNonHop(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	destma, err := ma.NewMultiaddr("/ipfs/" + hosts[2].ID().Pretty())
-	if err != nil {
-		t.Fatal(err)
+	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
+	dinfo := hosts[2].Peerstore().PeerInfo(hosts[2].ID())
+
+	rctx, rcancel := context.WithTimeout(ctx, time.Second)
+	defer rcancel()
+
+	_, err = r1.DialPeer(rctx, rinfo, dinfo)
+	if err == nil {
+		t.Fatal("expected error")
 	}
 
-	_, err = r1.Dial(ctx, hosts[1].ID(), destma)
-	if err.Error() != "protocol not supported" {
-		t.Fatal("expected 'protocol not supported' error")
-	}
-}
-
-func TestDestNoRelay(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	hosts := getNetHosts(t, ctx, 3)
-
-	connect(t, hosts[0], hosts[1])
-	connect(t, hosts[1], hosts[2])
-
-	r1, err := NewRelay(ctx, hosts[0])
-	if err != nil {
-		t.Fatal(err)
+	rerr, ok := err.(RelayError)
+	if !ok {
+		t.Fatalf("expected RelayError: %#v", err)
 	}
 
-	_, err = NewRelay(ctx, hosts[1], OptHop)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	destma, err := ma.NewMultiaddr("/ipfs/" + hosts[2].ID().Pretty())
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i := 0; i < 10; i++ {
-		destma = ma.Join(destma, destma)
-	}
-
-	_, err = r1.Dial(ctx, hosts[1].ID(), destma)
-	if !strings.HasPrefix(err.Error(), fmt.Sprintf("%d: address length was too long", StatusRelayAddrErr)) {
-		t.Fatal(err)
+	if rerr.Code != pb.CircuitRelay_HOP_CANT_SPEAK_RELAY {
+		t.Fatal("expected 'HOP_CANT_SPEAK_RELAY' error")
 	}
 }
 
@@ -253,6 +234,8 @@ func TestRelayNoDestConnection(t *testing.T) {
 
 	connect(t, hosts[0], hosts[1])
 
+	time.Sleep(10 * time.Millisecond)
+
 	r1, err := NewRelay(ctx, hosts[0])
 	if err != nil {
 		t.Fatal(err)
@@ -263,13 +246,87 @@ func TestRelayNoDestConnection(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	destma, err := ma.NewMultiaddr("/ipfs/" + hosts[2].ID().Pretty())
+	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
+	dinfo := hosts[2].Peerstore().PeerInfo(hosts[2].ID())
+
+	rctx, rcancel := context.WithTimeout(ctx, time.Second)
+	defer rcancel()
+
+	_, err = r1.DialPeer(rctx, rinfo, dinfo)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	rerr, ok := err.(RelayError)
+	if !ok {
+		t.Fatalf("expected RelayError: %#v", err)
+	}
+
+	if rerr.Code != pb.CircuitRelay_HOP_NO_CONN_TO_DST {
+		t.Fatal("expected 'HOP_NO_CONN_TO_DST' error")
+	}
+}
+
+func TestActiveRelay(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	hosts := getNetHosts(t, ctx, 3)
+
+	connect(t, hosts[0], hosts[1])
+
+	time.Sleep(10 * time.Millisecond)
+
+	r1, err := NewRelay(ctx, hosts[0])
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = r1.Dial(ctx, hosts[1].ID(), destma)
-	if err.Error() != "260: refusing to make new connection for relay" {
-		t.Fatal("expected this not to work")
+	_, err = NewRelay(ctx, hosts[1], OptHop, OptActive)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r3, err := NewRelay(ctx, hosts[2])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	msg := []byte("relay works!")
+	go func() {
+		list := r3.Listener()
+
+		con, err := list.Accept()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		_, err = con.Write(msg)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		con.Close()
+	}()
+
+	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
+	dinfo := hosts[2].Peerstore().PeerInfo(hosts[2].ID())
+
+	rctx, rcancel := context.WithTimeout(ctx, time.Second)
+	defer rcancel()
+
+	con, err := r1.DialPeer(rctx, rinfo, dinfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := ioutil.ReadAll(con)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(data, msg) {
+		t.Fatal("message was incorrect:", string(data))
 	}
 }
