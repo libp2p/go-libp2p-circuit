@@ -51,8 +51,4 @@ func (n *RelayNotifiee) Connected(s inet.Network, c inet.Conn) {
 	}(c.RemotePeer())
 }
 
-func (n *RelayNotifiee) Disconnected(s inet.Network, c inet.Conn) {
-	n.mx.Lock()
-	delete(n.relays, c.RemotePeer())
-	n.mx.Unlock()
-}
+func (n *RelayNotifiee) Disconnected(s inet.Network, c inet.Conn) {}

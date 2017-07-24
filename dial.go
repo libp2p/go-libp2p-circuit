@@ -72,6 +72,10 @@ func (d *RelayDialer) tryDialRelays(ctx context.Context, dinfo pstore.PeerInfo) 
 	d.mx.Unlock()
 
 	for _, relay := range relays {
+		if len(d.host.Network().ConnsToPeer(relay)) == 0 {
+			continue
+		}
+
 		rctx, cancel := context.WithTimeout(ctx, HopConnectTimeout)
 		c, err := d.Relay().DialPeer(rctx, pstore.PeerInfo{ID: relay}, dinfo)
 		cancel()
