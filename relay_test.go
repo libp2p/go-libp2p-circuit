@@ -330,3 +330,33 @@ func TestActiveRelay(t *testing.T) {
 		t.Fatal("message was incorrect:", string(data))
 	}
 }
+
+func TestRelayCanHop(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	hosts := getNetHosts(t, ctx, 2)
+
+	connect(t, hosts[0], hosts[1])
+
+	time.Sleep(10 * time.Millisecond)
+
+	r1, err := NewRelay(ctx, hosts[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = NewRelay(ctx, hosts[1], OptHop)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	canhop, err := r1.CanHop(ctx, hosts[1].ID())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !canhop {
+		t.Fatal("Relay can't hop")
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	// "sync"
 	"time"
 
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
@@ -33,6 +34,9 @@ type Relay struct {
 	hop    bool
 
 	incoming chan *Conn
+
+	// relays map[peer.ID]struct{}
+	// mx     sync.Mutex
 }
 
 type RelayOpt int
@@ -56,6 +60,7 @@ func NewRelay(ctx context.Context, h host.Host, opts ...RelayOpt) (*Relay, error
 		ctx:      ctx,
 		self:     h.ID(),
 		incoming: make(chan *Conn),
+		// relays:   make(map[peer.ID]struct{}),
 	}
 
 	for _, opt := range opts {
@@ -70,6 +75,7 @@ func NewRelay(ctx context.Context, h host.Host, opts ...RelayOpt) (*Relay, error
 	}
 
 	h.SetStreamHandler(ProtoID, r.handleNewStream)
+	// h.Network().Notify(r.Notifiee())
 
 	return r, nil
 }
@@ -119,6 +125,40 @@ func (r *Relay) DialPeer(ctx context.Context, relay pstore.PeerInfo, dest pstore
 	}
 
 	return &Conn{Stream: s, remote: dest, transport: r.Transport()}, nil
+}
+
+func (r *Relay) CanHop(ctx context.Context, id peer.ID) (bool, error) {
+	s, err := r.host.NewStream(ctx, id, ProtoID)
+	if err != nil {
+		return false, err
+	}
+
+	defer s.Close()
+
+	rd := newDelimitedReader(s, maxMessageSize)
+	wr := newDelimitedWriter(s)
+
+	var msg pb.CircuitRelay
+
+	msg.Type = pb.CircuitRelay_CAN_HOP.Enum()
+
+	err = wr.WriteMsg(&msg)
+	if err != nil {
+		return false, err
+	}
+
+	msg.Reset()
+
+	err = rd.ReadMsg(&msg)
+	if err != nil {
+		return false, err
+	}
+
+	if msg.GetType() != pb.CircuitRelay_STATUS {
+		return false, fmt.Errorf("unexpected relay response; not a status message (%d)", msg.GetType())
+	}
+
+	return msg.GetCode() == pb.CircuitRelay_SUCCESS, nil
 }
 
 func (r *Relay) handleNewStream(s inet.Stream) {
