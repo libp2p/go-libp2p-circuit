@@ -3,6 +3,7 @@ package relay
 import (
 	"context"
 	"fmt"
+	"math/rand"
 
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
 
@@ -70,6 +71,12 @@ func (d *RelayDialer) tryDialRelays(ctx context.Context, dinfo pstore.PeerInfo) 
 		relays = append(relays, p)
 	}
 	d.mx.Unlock()
+
+	// shuffle list of relays, avoid overloading a specific relay
+	for i := range relays {
+		j := rand.Intn(i + 1)
+		relays[i], relays[j] = relays[j], relays[i]
+	}
 
 	for _, relay := range relays {
 		if len(d.host.Network().ConnsToPeer(relay)) == 0 {
