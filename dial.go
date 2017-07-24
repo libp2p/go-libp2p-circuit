@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	pb "github.com/libp2p/go-libp2p-circuit/pb"
+
+	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	tpt "github.com/libp2p/go-libp2p-transport"
 	ma "github.com/multiformats/go-multiaddr"
@@ -42,17 +45,45 @@ func (d *RelayDialer) DialContext(ctx context.Context, a ma.Multiaddr) (tpt.Conn
 		}
 	}
 
-	rinfo, err := pstore.InfoFromP2pAddr(relayaddr)
-	if err != nil {
-		return nil, err
-	}
-
 	dinfo, err := pstore.InfoFromP2pAddr(destaddr)
 	if err != nil {
 		return nil, err
 	}
 
+	if len(relayaddr.Bytes()) == 0 {
+		// unspecific relay address, try dialing using known hop relays
+		return d.tryDialRelays(ctx, *dinfo)
+	}
+
+	rinfo, err := pstore.InfoFromP2pAddr(relayaddr)
+	if err != nil {
+		return nil, err
+	}
+
 	return d.Relay().DialPeer(ctx, *rinfo, *dinfo)
+}
+
+func (d *RelayDialer) tryDialRelays(ctx context.Context, dinfo pstore.PeerInfo) (tpt.Conn, error) {
+	var relays []peer.ID
+	d.mx.Lock()
+	for p := range d.relays {
+		relays = append(relays, p)
+	}
+	d.mx.Unlock()
+
+	for _, relay := range relays {
+		rctx, cancel := context.WithTimeout(ctx, HopConnectTimeout)
+		c, err := d.Relay().DialPeer(rctx, pstore.PeerInfo{ID: relay}, dinfo)
+		cancel()
+
+		if err == nil {
+			return c, nil
+		}
+
+		log.Debugf("Error opening relay connection to %s: %s", dinfo.ID, err.Error())
+	}
+
+	return nil, RelayError{pb.CircuitRelay_HOP_NO_CONN_TO_DST}
 }
 
 func (d *RelayDialer) Matches(a ma.Multiaddr) bool {

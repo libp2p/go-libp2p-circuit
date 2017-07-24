@@ -24,10 +24,17 @@ func init() {
 	ma.AddProtocol(Protocol)
 
 	// Add dialer transport
+	const unspecific = "/p2p-circuit/ipfs"
 	const proto = "/ipfs/p2p-circuit/ipfs"
+
 	tps := addrutil.SupportedTransportStrings
 
-	err := addrutil.AddTransport(proto)
+	err := addrutil.AddTransport(unspecific)
+	if err != nil {
+		panic(err)
+	}
+
+	err = addrutil.AddTransport(proto)
 	if err != nil {
 		panic(err)
 	}
