@@ -179,6 +179,74 @@ func TestBasicRelayDial(t *testing.T) {
 	}
 }
 
+func TestUnspecificRelayDial(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	hosts := getNetHosts(t, ctx, 3)
+
+	r1, err := NewRelay(ctx, hosts[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = NewRelay(ctx, hosts[1], OptHop)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r3, err := NewRelay(ctx, hosts[2])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	connect(t, hosts[0], hosts[1])
+	connect(t, hosts[1], hosts[2])
+
+	time.Sleep(100 * time.Millisecond)
+
+	msg := []byte("relay works!")
+	go func() {
+		list := r3.Listener()
+
+		con, err := list.Accept()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		_, err = con.Write(msg)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		con.Close()
+	}()
+
+	addr, err := ma.NewMultiaddr(fmt.Sprintf("/p2p-circuit/ipfs/%s", hosts[2].ID().Pretty()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rctx, rcancel := context.WithTimeout(ctx, time.Second)
+	defer rcancel()
+
+	d := r1.Dialer()
+	con, err := d.DialContext(rctx, addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := ioutil.ReadAll(con)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(data, msg) {
+		t.Fatal("message was incorrect:", string(data))
+	}
+}
+
 func TestRelayThroughNonHop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
