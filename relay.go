@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	// "sync"
+	"sync"
 	"time"
 
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
@@ -35,8 +35,8 @@ type Relay struct {
 
 	incoming chan *Conn
 
-	// relays map[peer.ID]struct{}
-	// mx     sync.Mutex
+	relays map[peer.ID]struct{}
+	mx     sync.Mutex
 }
 
 type RelayOpt int
@@ -60,7 +60,7 @@ func NewRelay(ctx context.Context, h host.Host, opts ...RelayOpt) (*Relay, error
 		ctx:      ctx,
 		self:     h.ID(),
 		incoming: make(chan *Conn),
-		// relays:   make(map[peer.ID]struct{}),
+		relays:   make(map[peer.ID]struct{}),
 	}
 
 	for _, opt := range opts {
@@ -75,7 +75,7 @@ func NewRelay(ctx context.Context, h host.Host, opts ...RelayOpt) (*Relay, error
 	}
 
 	h.SetStreamHandler(ProtoID, r.handleNewStream)
-	// h.Network().Notify(r.Notifiee())
+	h.Network().Notify(r.Notifiee())
 
 	return r, nil
 }
