@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 
-	pb "github.com/libp2p/go-libp2p-circuit/pb"
-
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	tpt "github.com/libp2p/go-libp2p-transport"
@@ -94,7 +92,7 @@ func (d *RelayDialer) tryDialRelays(ctx context.Context, dinfo pstore.PeerInfo) 
 		log.Debugf("error opening relay connection through %s: %s", dinfo.ID, err.Error())
 	}
 
-	return nil, RelayError{pb.CircuitRelay_HOP_NO_CONN_TO_DST}
+	return nil, fmt.Errorf("Failed to dial through %d known relay hosts", len(relays))
 }
 
 func (d *RelayDialer) Matches(a ma.Multiaddr) bool {
