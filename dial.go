@@ -91,7 +91,7 @@ func (d *RelayDialer) tryDialRelays(ctx context.Context, dinfo pstore.PeerInfo) 
 			return c, nil
 		}
 
-		log.Debugf("Error opening relay connection to %s: %s", dinfo.ID, err.Error())
+		log.Debugf("error opening relay connection through %s: %s", dinfo.ID, err.Error())
 	}
 
 	return nil, RelayError{pb.CircuitRelay_HOP_NO_CONN_TO_DST}

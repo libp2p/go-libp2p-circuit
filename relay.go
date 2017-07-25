@@ -82,6 +82,8 @@ func NewRelay(ctx context.Context, h host.Host, opts ...RelayOpt) (*Relay, error
 
 func (r *Relay) DialPeer(ctx context.Context, relay pstore.PeerInfo, dest pstore.PeerInfo) (*Conn, error) {
 
+	log.Debugf("dialing peer %s through relay %s", dest.ID, relay.ID)
+
 	if len(relay.Addrs) > 0 {
 		r.host.Peerstore().AddAddrs(relay.ID, relay.Addrs, pstore.TempAddrTTL)
 	}
