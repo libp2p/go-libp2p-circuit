@@ -10,21 +10,18 @@ import (
 
 	. "github.com/libp2p/go-libp2p-circuit"
 
+	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-func TestRelayTransport(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+const TestProto = "test/relay-transport"
 
+var msg = []byte("relay works!")
+
+func testSetupRelay(t *testing.T, ctx context.Context) []host.Host {
 	hosts := getNetHosts(t, ctx, 3)
-
-	connect(t, hosts[0], hosts[1])
-	connect(t, hosts[1], hosts[2])
-
-	time.Sleep(10 * time.Millisecond)
 
 	err := AddRelayTransport(ctx, hosts[0])
 	if err != nil {
@@ -41,9 +38,11 @@ func TestRelayTransport(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const proto = "test/relay-transport"
+	connect(t, hosts[0], hosts[1])
+	connect(t, hosts[1], hosts[2])
 
-	msg := []byte("relay works!")
+	time.Sleep(100 * time.Millisecond)
+
 	handler := func(s inet.Stream) {
 		_, err := s.Write(msg)
 		if err != nil {
@@ -52,7 +51,47 @@ func TestRelayTransport(t *testing.T) {
 		s.Close()
 	}
 
-	hosts[2].SetStreamHandler(proto, handler)
+	hosts[2].SetStreamHandler(TestProto, handler)
+
+	return hosts
+}
+
+func TestFullAddressTransportDial(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	hosts := testSetupRelay(t, ctx)
+
+	addr, err := ma.NewMultiaddr(fmt.Sprintf("%s/ipfs/%s/p2p-circuit/ipfs/%s", hosts[1].Addrs()[0].String(), hosts[1].ID().Pretty(), hosts[2].ID().Pretty()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rctx, rcancel := context.WithTimeout(ctx, time.Second)
+	defer rcancel()
+
+	hosts[0].Peerstore().AddAddrs(hosts[2].ID(), []ma.Multiaddr{addr}, pstore.TempAddrTTL)
+
+	s, err := hosts[0].NewStream(rctx, hosts[2].ID(), TestProto)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := ioutil.ReadAll(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(data, msg) {
+		t.Fatal("message was incorrect:", string(data))
+	}
+}
+
+func TestSpecificRelayTransportDial(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	hosts := testSetupRelay(t, ctx)
 
 	addr, err := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s/p2p-circuit/ipfs/%s", hosts[1].ID().Pretty(), hosts[2].ID().Pretty()))
 	if err != nil {
@@ -64,7 +103,38 @@ func TestRelayTransport(t *testing.T) {
 
 	hosts[0].Peerstore().AddAddrs(hosts[2].ID(), []ma.Multiaddr{addr}, pstore.TempAddrTTL)
 
-	s, err := hosts[0].NewStream(rctx, hosts[2].ID(), proto)
+	s, err := hosts[0].NewStream(rctx, hosts[2].ID(), TestProto)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := ioutil.ReadAll(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(data, msg) {
+		t.Fatal("message was incorrect:", string(data))
+	}
+}
+
+func TestUnspecificRelayTransportDial(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	hosts := testSetupRelay(t, ctx)
+
+	addr, err := ma.NewMultiaddr(fmt.Sprintf("/p2p-circuit/ipfs/%s", hosts[2].ID().Pretty()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rctx, rcancel := context.WithTimeout(ctx, time.Second)
+	defer rcancel()
+
+	hosts[0].Peerstore().AddAddrs(hosts[2].ID(), []ma.Multiaddr{addr}, pstore.TempAddrTTL)
+
+	s, err := hosts[0].NewStream(rctx, hosts[2].ID(), TestProto)
 	if err != nil {
 		t.Fatal(err)
 	}
