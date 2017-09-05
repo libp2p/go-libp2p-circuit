@@ -74,9 +74,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmPqZ86tyhGdYoLdJNFLUPqQkiqtghY13xmKnCMG9wcyrB",
+      "hash": "QmQ1bJEsmdEiGfTQRoj6CsshWmAKduAEDEbwzbvk5QT5Ui",
       "name": "go-libp2p-netutil",
-      "version": "0.2.24"
+      "version": "0.2.25"
     },
     {
       "author": "whyrusleeping",
@@ -92,15 +92,15 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmYJkfefr2gXX6jf8z18oD8GY3wrqCH99XKg8e2K1cEBVX",
+      "hash": "QmQUmDr1DMDDy6KMSsJuyV9nVD7dJZ9iWxXESQWPvte2NP",
       "name": "go-libp2p-swarm",
-      "version": "1.7.6"
+      "version": "1.7.7"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmNyxhT1VqCWtgPrX4d1UrevixVvn8QyZJMuzdvSZXUyVA",
+      "hash": "QmVJGsPeK3vwtEyyTxpCs47yjBYMmYsAhEouPDF3Gb2eK3",
       "name": "go-addr-util",
-      "version": "1.2.1"
+      "version": "1.2.2"
     },
     {
       "author": "multiformats",
@@ -114,6 +114,6 @@
   "license": "MIT",
   "name": "go-libp2p-circuit",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.1.7"
+  "version": "1.1.8"
 }
 
