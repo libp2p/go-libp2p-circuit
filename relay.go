@@ -104,7 +104,7 @@ func (r *Relay) DialPeer(ctx context.Context, relay pstore.PeerInfo, dest pstore
 
 	err = wr.WriteMsg(&msg)
 	if err != nil {
-		s.Close()
+		s.Reset()
 		return nil, err
 	}
 
@@ -112,17 +112,17 @@ func (r *Relay) DialPeer(ctx context.Context, relay pstore.PeerInfo, dest pstore
 
 	err = rd.ReadMsg(&msg)
 	if err != nil {
-		s.Close()
+		s.Reset()
 		return nil, err
 	}
 
 	if msg.GetType() != pb.CircuitRelay_STATUS {
-		s.Close()
+		s.Reset()
 		return nil, fmt.Errorf("unexpected relay response; not a status message (%d)", msg.GetType())
 	}
 
 	if msg.GetCode() != pb.CircuitRelay_SUCCESS {
-		s.Close()
+		s.Reset()
 		return nil, RelayError{msg.GetCode()}
 	}
 
@@ -135,8 +135,6 @@ func (r *Relay) CanHop(ctx context.Context, id peer.ID) (bool, error) {
 		return false, err
 	}
 
-	defer s.Close()
-
 	rd := newDelimitedReader(s, maxMessageSize)
 	wr := newDelimitedWriter(s)
 
@@ -146,12 +144,15 @@ func (r *Relay) CanHop(ctx context.Context, id peer.ID) (bool, error) {
 
 	err = wr.WriteMsg(&msg)
 	if err != nil {
+		s.Reset()
 		return false, err
 	}
 
 	msg.Reset()
 
 	err = rd.ReadMsg(&msg)
+	s.Close()
+
 	if err != nil {
 		return false, err
 	}
@@ -248,7 +249,7 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	err = wr.WriteMsg(msg)
 	if err != nil {
 		log.Debugf("error writing stop handshake: %s", err.Error())
-		bs.Close()
+		bs.Reset()
 		r.handleError(s, pb.CircuitRelay_HOP_CANT_OPEN_DST_STREAM)
 		return
 	}
@@ -258,21 +259,21 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	err = rd.ReadMsg(msg)
 	if err != nil {
 		log.Debugf("error reading stop response: %s", err.Error())
-		bs.Close()
+		bs.Reset()
 		r.handleError(s, pb.CircuitRelay_HOP_CANT_OPEN_DST_STREAM)
 		return
 	}
 
 	if msg.GetType() != pb.CircuitRelay_STATUS {
 		log.Debugf("unexpected relay stop response: not a status message (%d)", msg.GetType())
-		bs.Close()
+		bs.Reset()
 		r.handleError(s, pb.CircuitRelay_HOP_CANT_OPEN_DST_STREAM)
 		return
 	}
 
 	if msg.GetCode() != pb.CircuitRelay_SUCCESS {
 		log.Debugf("relay stop failure: %d", msg.GetCode())
-		bs.Close()
+		bs.Reset()
 		r.handleError(s, msg.GetCode())
 		return
 	}
@@ -280,14 +281,16 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	err = r.writeResponse(s, pb.CircuitRelay_SUCCESS)
 	if err != nil {
 		log.Debugf("error writing relay response: %s", err.Error())
-		bs.Close()
-		s.Close()
+		bs.Reset()
+		s.Reset()
 		return
 	}
 
 	// relay connection
 	log.Infof("relaying connection between %s and %s", src.ID.Pretty(), dst.ID.Pretty())
 
+	// Don't reset streams after finishing or the other side will get an
+	// error, not an EOF.
 	go func() {
 		count, err := io.Copy(s, bs)
 		if err != io.EOF && err != nil {
@@ -353,9 +356,11 @@ func (r *Relay) handleError(s inet.Stream, code pb.CircuitRelay_Status) {
 	log.Warningf("relay error: %s (%d)", pb.CircuitRelay_Status_name[int32(code)], code)
 	err := r.writeResponse(s, code)
 	if err != nil {
+		s.Reset()
 		log.Debugf("error writing relay response: %s", err.Error())
+	} else {
+		s.Close()
 	}
-	s.Close()
 }
 
 func (r *Relay) writeResponse(s inet.Stream, code pb.CircuitRelay_Status) error {
