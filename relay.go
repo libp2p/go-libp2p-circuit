@@ -346,10 +346,11 @@ func (r *Relay) handleCanHop(s inet.Stream, msg *pb.CircuitRelay) {
 	}
 
 	if err != nil {
+		s.Reset()
 		log.Debugf("error writing relay response: %s", err.Error())
+	} else {
+		s.Close()
 	}
-
-	s.Close()
 }
 
 func (r *Relay) handleError(s inet.Stream, code pb.CircuitRelay_Status) {
