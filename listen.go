@@ -30,9 +30,7 @@ func (l *RelayListener) Accept() (tpt.Conn, error) {
 		err := l.Relay().writeResponse(c.Stream, pb.CircuitRelay_SUCCESS)
 		if err != nil {
 			log.Debugf("error writing relay response: %s", err.Error())
-			// this won't prevent the other side from continuing to write
-			// TODO fully close the stream when Reset is implemented
-			c.Stream.Close()
+			c.Stream.Reset()
 			return nil, err
 		}
 
