@@ -47,6 +47,7 @@ func (n *RelayNotifiee) Connected(s inet.Network, c inet.Conn) {
 			n.mx.Lock()
 			n.relays[id] = struct{}{}
 			n.mx.Unlock()
+			n.host.ConnManager().TagPeer(id, "relay-hop", 2)
 		}
 	}(c.RemotePeer())
 }
