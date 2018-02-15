@@ -14,6 +14,8 @@ import (
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 var log = logging.Logger("relay")
@@ -26,9 +28,10 @@ var RelayAcceptTimeout = time.Minute
 var HopConnectTimeout = 10 * time.Second
 
 type Relay struct {
-	host host.Host
-	ctx  context.Context
-	self peer.ID
+	host     host.Host
+	upgrader *tptu.Upgrader
+	ctx      context.Context
+	self     peer.ID
 
 	active bool
 	hop    bool
@@ -54,8 +57,9 @@ func (e RelayError) Error() string {
 	return fmt.Sprintf("error opening relay circuit: %s (%d)", pb.CircuitRelay_Status_name[int32(e.Code)], e.Code)
 }
 
-func NewRelay(ctx context.Context, h host.Host, opts ...RelayOpt) (*Relay, error) {
+func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ...RelayOpt) (*Relay, error) {
 	r := &Relay{
+		upgrader: upgrader,
 		host:     h,
 		ctx:      ctx,
 		self:     h.ID(),
@@ -126,7 +130,13 @@ func (r *Relay) DialPeer(ctx context.Context, relay pstore.PeerInfo, dest pstore
 		return nil, RelayError{msg.GetCode()}
 	}
 
-	return &Conn{Stream: s, remote: dest, transport: r.Transport()}, nil
+	return &Conn{Stream: s, remote: dest}, nil
+}
+
+func (r *Relay) Matches(addr ma.Multiaddr) bool {
+	// TODO: Look at the prefix transport as well.
+	_, err := addr.ValueForProtocol(P_CIRCUIT)
+	return err == nil
 }
 
 func (r *Relay) CanHop(ctx context.Context, id peer.ID) (bool, error) {
@@ -340,7 +350,7 @@ func (r *Relay) handleStopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	}
 
 	select {
-	case r.incoming <- &Conn{Stream: s, remote: src, transport: r.Transport()}:
+	case r.incoming <- &Conn{Stream: s, remote: src}:
 	case <-time.After(RelayAcceptTimeout):
 		r.handleError(s, pb.CircuitRelay_STOP_RELAY_REFUSED)
 	}

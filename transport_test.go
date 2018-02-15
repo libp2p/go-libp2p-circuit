@@ -13,6 +13,8 @@ import (
 	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	swarm "github.com/libp2p/go-libp2p-swarm"
+	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -23,17 +25,17 @@ var msg = []byte("relay works!")
 func testSetupRelay(t *testing.T, ctx context.Context) []host.Host {
 	hosts := getNetHosts(t, ctx, 3)
 
-	err := AddRelayTransport(ctx, hosts[0])
+	err := AddRelayTransport(ctx, hosts[0], swarmt.GenUpgrader(hosts[0].Network().(*swarm.Swarm)))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = AddRelayTransport(ctx, hosts[1], OptHop)
+	err = AddRelayTransport(ctx, hosts[1], swarmt.GenUpgrader(hosts[1].Network().(*swarm.Swarm)), OptHop)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = AddRelayTransport(ctx, hosts[2])
+	err = AddRelayTransport(ctx, hosts[2], swarmt.GenUpgrader(hosts[2].Network().(*swarm.Swarm)))
 	if err != nil {
 		t.Fatal(err)
 	}
