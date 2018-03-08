@@ -152,18 +152,18 @@ func (r *Relay) CanHop(ctx context.Context, id peer.ID) (bool, error) {
 
 	msg.Type = pb.CircuitRelay_CAN_HOP.Enum()
 
-	err = wr.WriteMsg(&msg)
-	if err != nil {
+	if err := wr.WriteMsg(&msg); err != nil {
 		s.Reset()
 		return false, err
 	}
 
 	msg.Reset()
 
-	err = rd.ReadMsg(&msg)
-	s.Close()
-
-	if err != nil {
+	if err := rd.ReadMsg(&msg); err != nil {
+		s.Reset()
+		return false, err
+	}
+	if err := inet.FullClose(s); err != nil {
 		return false, err
 	}
 
@@ -369,7 +369,7 @@ func (r *Relay) handleCanHop(s inet.Stream, msg *pb.CircuitRelay) {
 		s.Reset()
 		log.Debugf("error writing relay response: %s", err.Error())
 	} else {
-		s.Close()
+		inet.FullClose(s)
 	}
 }
 
@@ -380,7 +380,7 @@ func (r *Relay) handleError(s inet.Stream, code pb.CircuitRelay_Status) {
 		s.Reset()
 		log.Debugf("error writing relay response: %s", err.Error())
 	} else {
-		s.Close()
+		inet.FullClose(s)
 	}
 }
 
