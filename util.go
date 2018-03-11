@@ -29,9 +29,8 @@ func peerToPeerInfo(p *pb.CircuitRelay_Peer) (pstore.PeerInfo, error) {
 	for i := 0; i < len(addrs); i++ {
 		a, err := ma.NewMultiaddrBytes(p.Addrs[i])
 		if err != nil {
-			return pstore.PeerInfo{}, err
+			addrs[i] = a
 		}
-		addrs[i] = a
 	}
 
 	return pstore.PeerInfo{ID: peer.ID(h), Addrs: addrs}, nil
