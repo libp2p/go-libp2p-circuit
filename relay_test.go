@@ -137,6 +137,8 @@ func TestRelayReset(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	ready := make(chan struct{})
+
 	msg := []byte("relay works!")
 	go func() {
 		list := r3.Listener()
@@ -152,6 +154,8 @@ func TestRelayReset(t *testing.T) {
 			t.Error(err)
 			return
 		}
+		<-ready
+
 		hosts[2].Close()
 	}()
 
@@ -165,6 +169,8 @@ func TestRelayReset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	close(ready)
 
 	_, err = ioutil.ReadAll(con)
 	if err == nil {
