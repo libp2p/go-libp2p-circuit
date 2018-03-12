@@ -25,11 +25,11 @@ func peerToPeerInfo(p *pb.CircuitRelay_Peer) (pstore.PeerInfo, error) {
 		return pstore.PeerInfo{}, err
 	}
 
-	addrs := make([]ma.Multiaddr, len(p.Addrs))
-	for i := 0; i < len(addrs); i++ {
-		a, err := ma.NewMultiaddrBytes(p.Addrs[i])
+	addrs := make([]ma.Multiaddr, 0, len(p.Addrs))
+	for _, addrBytes := range p.Addrs {
+		a, err := ma.NewMultiaddrBytes(addrBytes)
 		if err == nil {
-			addrs[i] = a
+			addrs = append(addrs, a)
 		}
 	}
 
@@ -38,8 +38,8 @@ func peerToPeerInfo(p *pb.CircuitRelay_Peer) (pstore.PeerInfo, error) {
 
 func peerInfoToPeer(pi pstore.PeerInfo) *pb.CircuitRelay_Peer {
 	addrs := make([][]byte, len(pi.Addrs))
-	for i := 0; i < len(addrs); i++ {
-		addrs[i] = pi.Addrs[i].Bytes()
+	for i, addr := range pi.Addrs {
+		addrs[i] = addr.Bytes()
 	}
 
 	p := new(pb.CircuitRelay_Peer)
