@@ -74,9 +74,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmYELA7ZYpWS1MYbpxEq1mMJsoBC33EvKfdWwfUkjc9wHP",
+      "hash": "Qma2UuHusnaFV24DgeZ5hyrM9uc4UdyVaZbtn2FQsPRhES",
       "name": "go-libp2p-netutil",
-      "version": "0.3.12"
+      "version": "0.3.13"
     },
     {
       "author": "whyrusleeping",
@@ -92,9 +92,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmWhhwxrH6msgQ3UFiDs2a5DQKwQQHroNJVkPkK8e8AuEX",
+      "hash": "QmRpKdg1xs4Yyrn9yrVYRBp7AQqyRxMLpD6Jgp1eZAGqEr",
       "name": "go-libp2p-swarm",
-      "version": "2.1.8"
+      "version": "2.1.9"
     },
     {
       "author": "whyrusleeping",
@@ -114,6 +114,6 @@
   "license": "MIT",
   "name": "go-libp2p-circuit",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "2.0.13"
+  "version": "2.0.14"
 }
 
