@@ -163,9 +163,7 @@ func (r *Relay) CanHop(ctx context.Context, id peer.ID) (bool, error) {
 		s.Reset()
 		return false, err
 	}
-	if err := inet.FullClose(s); err != nil {
-		return false, err
-	}
+	go inet.FullClose(s)
 
 	if msg.GetType() != pb.CircuitRelay_STATUS {
 		return false, fmt.Errorf("unexpected relay response; not a status message (%d)", msg.GetType())
