@@ -73,12 +73,6 @@
       "version": "3.0.9"
     },
     {
-      "author": "multiformats",
-      "hash": "QmPnFwZ2JXKnXgMw8CdBPxn7FWh6LLdjUjxV1fKHuJnkr8",
-      "name": "go-multihash",
-      "version": "1.0.8"
-    },
-    {
       "author": "steb",
       "hash": "QmefQrpDSYX6jQRtUyhcASFVBDkoAsDTPXemyxGMzA3phK",
       "name": "go-libp2p-transport-upgrader",
