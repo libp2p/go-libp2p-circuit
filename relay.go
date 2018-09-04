@@ -107,12 +107,12 @@ func (r *Relay) rmLiveHop(from, to peer.ID) {
 	r.lhLk.Lock()
 	defer r.lhLk.Unlock()
 
-	r.lhCount--
 	trg, ok := r.liveHops[from]
 	if !ok {
 		return
 	}
 
+	r.lhCount--
 	delete(trg, to)
 	if len(trg) == 0 {
 		delete(r.liveHops, from)
