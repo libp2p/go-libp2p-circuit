@@ -93,13 +93,16 @@ func (r *Relay) addLiveHop(from, to peer.ID) {
 	r.lhLk.Lock()
 	defer r.lhLk.Unlock()
 
-	r.lhCount++
 	trg, ok := r.liveHops[from]
 	if !ok {
 		trg = make(map[peer.ID]struct{})
 		r.liveHops[from] = trg
 	}
+	if _, ok := trg[to]; ok {
+		return
+	}
 
+	r.lhCount++
 	trg[to] = struct{}{}
 }
 
@@ -109,6 +112,9 @@ func (r *Relay) rmLiveHop(from, to peer.ID) {
 
 	trg, ok := r.liveHops[from]
 	if !ok {
+		return
+	}
+	if _, ok := trg[to]; !ok {
 		return
 	}
 
