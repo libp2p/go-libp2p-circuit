@@ -4,24 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	circmaddr "github.com/libp2p/go-libp2p-circuit/multiaddr"
+
 	host "github.com/libp2p/go-libp2p-host"
 	tpt "github.com/libp2p/go-libp2p-transport"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-const P_CIRCUIT = 290
-
-var Protocol = ma.Protocol{
-	Code:  P_CIRCUIT,
-	Size:  0,
-	Name:  "p2p-circuit",
-	VCode: ma.CodeToVarint(P_CIRCUIT),
-}
-
-func init() {
-	ma.AddProtocol(Protocol)
-}
+// TODO: this can be removed once the new constant is used downstream
+const P_CIRCUIT = circmaddr.P_CIRCUIT
 
 var _ tpt.Transport = (*RelayTransport)(nil)
 
@@ -53,7 +45,7 @@ func (t *RelayTransport) Proxy() bool {
 }
 
 func (t *RelayTransport) Protocols() []int {
-	return []int{P_CIRCUIT}
+	return []int{circmaddr.P_CIRCUIT}
 }
 
 // AddRelayTransport constructs a relay and adds it as a transport to the host network.

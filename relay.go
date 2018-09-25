@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	circmaddr "github.com/libp2p/go-libp2p-circuit/multiaddr"
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
 
 	logging "github.com/ipfs/go-log"
@@ -177,7 +178,7 @@ func (r *Relay) DialPeer(ctx context.Context, relay pstore.PeerInfo, dest pstore
 
 func (r *Relay) Matches(addr ma.Multiaddr) bool {
 	// TODO: Look at the prefix transport as well.
-	_, err := addr.ValueForProtocol(P_CIRCUIT)
+	_, err := addr.ValueForProtocol(circmaddr.P_CIRCUIT)
 	return err == nil
 }
 
