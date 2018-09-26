@@ -204,15 +204,12 @@ func TestBasicRelayDial(t *testing.T) {
 		con.Close()
 	}()
 
-	addr, err := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s/p2p-circuit/ipfs/%s", hosts[1].ID().Pretty(), hosts[2].ID().Pretty()))
-	if err != nil {
-		t.Fatal(err)
-	}
+	addr := ma.StringCast(fmt.Sprintf("/ipfs/%s/p2p-circuit", hosts[1].ID().Pretty()))
 
 	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
-	con, err := r1.Dial(rctx, addr)
+	con, err := r1.Dial(rctx, addr, hosts[2].ID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -262,15 +259,12 @@ func TestUnspecificRelayDial(t *testing.T) {
 		con.Close()
 	}()
 
-	addr, err := ma.NewMultiaddr(fmt.Sprintf("/p2p-circuit/ipfs/%s", hosts[2].ID().Pretty()))
-	if err != nil {
-		t.Fatal(err)
-	}
+	addr := ma.StringCast(fmt.Sprintf("/p2p-circuit"))
 
 	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
-	con, err := r1.Dial(rctx, addr)
+	con, err := r1.Dial(rctx, addr, hosts[2].ID())
 	if err != nil {
 		t.Fatal(err)
 	}
