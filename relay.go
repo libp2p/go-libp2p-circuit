@@ -41,7 +41,7 @@ type Relay struct {
 	relays map[peer.ID]struct{}
 	mx     sync.Mutex
 
-	liveHops map[peer.ID]map[peer.ID]struct{}
+	liveHops map[peer.ID]map[peer.ID]int
 	lhCount  uint64
 	lhLk     sync.Mutex
 }
@@ -69,7 +69,7 @@ func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ..
 		self:     h.ID(),
 		incoming: make(chan *Conn),
 		relays:   make(map[peer.ID]struct{}),
-		liveHops: make(map[peer.ID]map[peer.ID]struct{}),
+		liveHops: make(map[peer.ID]map[peer.ID]int),
 	}
 
 	for _, opt := range opts {
@@ -95,15 +95,17 @@ func (r *Relay) addLiveHop(from, to peer.ID) {
 
 	trg, ok := r.liveHops[from]
 	if !ok {
-		trg = make(map[peer.ID]struct{})
+		trg = make(map[peer.ID]int)
 		r.liveHops[from] = trg
 	}
-	if _, ok := trg[to]; ok {
-		return
+	var count int
+	if count, ok = trg[to]; !ok {
+		count = 0
 	}
+	count++
 
 	r.lhCount++
-	trg[to] = struct{}{}
+	trg[to] = count
 }
 
 func (r *Relay) rmLiveHop(from, to peer.ID) {
@@ -114,14 +116,20 @@ func (r *Relay) rmLiveHop(from, to peer.ID) {
 	if !ok {
 		return
 	}
-	if _, ok := trg[to]; !ok {
+	var count int
+	if count, ok = trg[to]; !ok {
 		return
 	}
+	count--
 
 	r.lhCount--
-	delete(trg, to)
-	if len(trg) == 0 {
-		delete(r.liveHops, from)
+	if count <= 0 {
+		delete(trg, to)
+		if len(trg) == 0 {
+			delete(r.liveHops, from)
+		}
+	} else {
+		trg[to] = count
 	}
 }
 
