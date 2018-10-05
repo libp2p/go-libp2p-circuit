@@ -98,14 +98,8 @@ func (r *Relay) addLiveHop(from, to peer.ID) {
 		trg = make(map[peer.ID]int)
 		r.liveHops[from] = trg
 	}
-	var count int
-	if count, ok = trg[to]; !ok {
-		count = 0
-	}
-	count++
-
+	trg[to]++
 	r.lhCount++
-	trg[to] = count
 }
 
 func (r *Relay) rmLiveHop(from, to peer.ID) {
