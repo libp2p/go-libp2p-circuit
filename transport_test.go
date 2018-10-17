@@ -25,7 +25,7 @@ var msg = []byte("relay works!")
 func testSetupRelay(t *testing.T, ctx context.Context) []host.Host {
 	hosts := getNetHosts(t, ctx, 3)
 
-	err := AddRelayTransport(ctx, hosts[0], swarmt.GenUpgrader(hosts[0].Network().(*swarm.Swarm)))
+	err := AddRelayTransport(ctx, hosts[0], swarmt.GenUpgrader(hosts[0].Network().(*swarm.Swarm)), OptDiscovery)
 	if err != nil {
 		t.Fatal(err)
 	}
