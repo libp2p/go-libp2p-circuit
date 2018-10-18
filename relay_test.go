@@ -66,7 +66,7 @@ func TestBasicRelay(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0])
+	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
 
 	newTestRelay(t, ctx, hosts[1], OptHop)
 
@@ -122,7 +122,7 @@ func TestRelayReset(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0])
+	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
 
 	newTestRelay(t, ctx, hosts[1], OptHop)
 
@@ -181,7 +181,7 @@ func TestBasicRelayDial(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0])
+	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
 
 	_ = newTestRelay(t, ctx, hosts[1], OptHop)
 	r3 := newTestRelay(t, ctx, hosts[2])
@@ -230,7 +230,7 @@ func TestUnspecificRelayDial(t *testing.T) {
 
 	hosts := getNetHosts(t, ctx, 3)
 
-	r1 := newTestRelay(t, ctx, hosts[0])
+	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
 
 	newTestRelay(t, ctx, hosts[1], OptHop)
 
@@ -290,7 +290,7 @@ func TestRelayThroughNonHop(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0])
+	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
 
 	newTestRelay(t, ctx, hosts[1])
 
@@ -327,7 +327,7 @@ func TestRelayNoDestConnection(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0])
+	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
 
 	newTestRelay(t, ctx, hosts[1], OptHop)
 
@@ -362,7 +362,7 @@ func TestActiveRelay(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0])
+	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
 
 	newTestRelay(t, ctx, hosts[1], OptHop, OptActive)
 
