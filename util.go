@@ -5,7 +5,7 @@ import (
 	"errors"
 	"io"
 
-	pb "github.com/libp2p/go-libp2p-circuit/pb"
+	pb "github.com/libp2p/go-libp2p-circuit/v3/pb"
 
 	ggio "github.com/gogo/protobuf/io"
 	proto "github.com/gogo/protobuf/proto"

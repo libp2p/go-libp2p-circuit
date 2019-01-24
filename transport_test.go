@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/libp2p/go-libp2p-circuit"
+	. "github.com/libp2p/go-libp2p-circuit/v3"
 
 	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"

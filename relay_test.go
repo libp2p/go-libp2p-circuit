@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/libp2p/go-libp2p-circuit"
-	pb "github.com/libp2p/go-libp2p-circuit/pb"
+	. "github.com/libp2p/go-libp2p-circuit/v3"
+	pb "github.com/libp2p/go-libp2p-circuit/v3/pb"
 
 	bhost "github.com/libp2p/go-libp2p-blankhost"
 	host "github.com/libp2p/go-libp2p-host"

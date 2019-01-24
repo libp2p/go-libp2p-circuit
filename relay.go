@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/libp2p/go-libp2p-circuit/pb"
+	pb "github.com/libp2p/go-libp2p-circuit/v3/pb"
 
 	logging "github.com/ipfs/go-log"
 	host "github.com/libp2p/go-libp2p-host"
