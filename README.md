@@ -24,7 +24,7 @@ go get -u github.com/libp2p/go-libp2p-circuit
 
 ## Usage
 
-TODO
+Refer to the [relay example](https://github.com/libp2p/go-libp2p-examples/tree/master/relay) in the `go-libp2p-examples` repository for usage instructions.
 
 ## Contribute
 
