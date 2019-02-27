@@ -68,15 +68,15 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmX9A6whepz59nU5jU9fbVQGkZQspdWkvcpP7gCihoKnGS",
+      "hash": "Qma3Xp3FXFSP4prirEiRYHJ2tgGE8EAx9i6JLziPLpAQjq",
       "name": "go-libp2p-swarm",
-      "version": "3.0.33"
+      "version": "3.0.34"
     },
     {
       "author": "steb",
-      "hash": "QmNjhxwzKp9uB1T2p4PBW3xi7pboJ7iXKvAHQW92ayqAm2",
+      "hash": "QmeqC5shQjEBRG9B8roZqQCJ9xb7Pq6AbWxJFMyLgqBBWh",
       "name": "go-libp2p-transport-upgrader",
-      "version": "0.1.27"
+      "version": "0.1.28"
     }
   ],
   "gxVersion": "0.11.0",
@@ -84,6 +84,6 @@
   "license": "MIT",
   "name": "go-libp2p-circuit",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "2.3.13"
+  "version": "2.3.14"
 }
 
