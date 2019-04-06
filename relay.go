@@ -40,12 +40,13 @@ type Relay struct {
 
 	incoming chan *Conn
 
-	relays map[peer.ID]struct{}
 	mx     sync.Mutex
+	relays map[peer.ID]struct{}
+	rsvp   map[peer.ID]struct{}
 
+	lhLk     sync.Mutex
 	liveHops map[peer.ID]map[peer.ID]int
 	lhCount  uint64
-	lhLk     sync.Mutex
 }
 
 // RelayOpts are options for configuring the relay transport.
@@ -466,8 +467,19 @@ func (r *Relay) handleReserve(s inet.Stream, msg *pb.CircuitRelay) {
 		// TODO this should check against some user-specified resource limit
 		//      for now it just tags the peer in the connection manager
 		//      so the reservation is never refused
-		r.host.ConnManager().TagPeer(s.Conn().RemotePeer(), "relay", 1)
+		p := s.Conn().RemotePeer()
+		r.mx.Lock()
+		r.rsvp[p] = struct{}{}
+		r.host.ConnManager().TagPeer(p, "relay", 1)
+		r.mx.Unlock()
 		err = r.writeResponse(s, pb.CircuitRelay_SUCCESS)
+		if err != nil {
+			// undo the reservation
+			r.mx.Lock()
+			delete(r.rsvp, p)
+			r.host.ConnManager().UntagPeer(p, "relay")
+			r.mx.Unlock()
+		}
 	} else {
 		// we are not a hop relay, the reservation is meaningless
 		err = r.writeResponse(s, pb.CircuitRelay_HOP_CANT_SPEAK_RELAY)
