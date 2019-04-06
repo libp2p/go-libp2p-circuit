@@ -72,7 +72,17 @@ type RelayError struct {
 }
 
 func (e RelayError) Error() string {
-	return fmt.Sprintf("error opening relay circuit: %s (%d)", pb.CircuitRelay_Status_name[int32(e.Code)], e.Code)
+	return fmt.Sprintf("relay error: %s (%d)", pb.CircuitRelay_Status_name[int32(e.Code)], e.Code)
+}
+
+func IsMalformedMessageError(err error) bool {
+	re, ok := err.(RelayError)
+	return ok && re.Code == pb.CircuitRelay_MALFORMED_MESSAGE
+}
+
+func IsHopRefusedError(err error) bool {
+	re, ok := err.(RelayError)
+	return ok && re.Code == pb.CircuitRelay_HOP_CANT_SPEAK_RELAY
 }
 
 // NewRelay constructs a new relay.
@@ -468,6 +478,51 @@ func (r *Relay) handleReserve(s inet.Stream, msg *pb.CircuitRelay) {
 		log.Debugf("error writing relay response: %s", err.Error())
 	} else {
 		inet.FullClose(s)
+	}
+}
+
+// Reserve asks a hop relay to reserve the connection.
+func Reserve(ctx context.Context, h host.Host, p peer.ID) (bool, error) {
+	s, err := h.NewStream(ctx, p, ProtoID)
+	if err != nil {
+		return false, err
+	}
+
+	rd := newDelimitedReader(s, maxMessageSize)
+	wr := newDelimitedWriter(s)
+
+	var msg pb.CircuitRelay
+
+	msg.Type = pb.CircuitRelay_RESERVE.Enum()
+
+	if err := wr.WriteMsg(&msg); err != nil {
+		s.Reset()
+		return false, err
+	}
+
+	msg.Reset()
+
+	if err := rd.ReadMsg(&msg); err != nil {
+		s.Reset()
+		return false, err
+	}
+	if err := inet.FullClose(s); err != nil {
+		return false, err
+	}
+
+	if msg.GetType() != pb.CircuitRelay_STATUS {
+		return false, fmt.Errorf("unexpected relay response; not a status message (%d)", msg.GetType())
+	}
+
+	switch msg.GetCode() {
+	case pb.CircuitRelay_SUCCESS:
+		return true, nil
+
+	case pb.CircuitRelay_RESERVATION_REFUSED:
+		return false, nil
+
+	default:
+		return false, RelayError{Code: msg.GetCode()}
 	}
 }
 
