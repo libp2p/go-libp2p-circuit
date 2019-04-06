@@ -264,6 +264,8 @@ func (r *Relay) handleNewStream(s inet.Stream) {
 		r.handleStopStream(s, &msg)
 	case pb.CircuitRelay_CAN_HOP:
 		r.handleCanHop(s, &msg)
+	case pb.CircuitRelay_RESERVE:
+		r.handleReserve(s, &msg)
 	default:
 		log.Warningf("unexpected relay handshake: %d", msg.GetType())
 		r.handleError(s, pb.CircuitRelay_MALFORMED_MESSAGE)
@@ -436,6 +438,28 @@ func (r *Relay) handleCanHop(s inet.Stream, msg *pb.CircuitRelay) {
 	if r.hop {
 		err = r.writeResponse(s, pb.CircuitRelay_SUCCESS)
 	} else {
+		err = r.writeResponse(s, pb.CircuitRelay_HOP_CANT_SPEAK_RELAY)
+	}
+
+	if err != nil {
+		s.Reset()
+		log.Debugf("error writing relay response: %s", err.Error())
+	} else {
+		inet.FullClose(s)
+	}
+}
+
+func (r *Relay) handleReserve(s inet.Stream, msg *pb.CircuitRelay) {
+	var err error
+
+	if r.hop {
+		// TODO this should check against some user-specified resource limit
+		//      for now it just tags the peer in the connection manager
+		//      so the reservation is never refused
+		r.host.ConnManager().TagPeer(s.Conn().RemotePeer(), "relay", 1)
+		err = r.writeResponse(s, pb.CircuitRelay_SUCCESS)
+	} else {
+		// we are not a hop relay, the reservation is meaningless
 		err = r.writeResponse(s, pb.CircuitRelay_HOP_CANT_SPEAK_RELAY)
 	}
 
