@@ -55,6 +55,11 @@ func (n *RelayNotifiee) Disconnected(s inet.Network, c inet.Conn) {
 	r := n.Relay()
 	p := c.RemotePeer()
 
+	if r.host.Network().Connectedness(p) == inet.Connected {
+		// we have multiple connections
+		return
+	}
+
 	r.mx.Lock()
 	defer r.mx.Unlock()
 	if _, ok := r.rsvp[p]; ok {
