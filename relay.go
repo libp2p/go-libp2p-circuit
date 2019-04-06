@@ -90,7 +90,7 @@ func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ..
 	h.SetStreamHandler(ProtoID, r.handleNewStream)
 
 	if r.discovery {
-		h.Network().Notify(r.Notifiee())
+		h.Network().Notify(r.notifiee())
 	}
 
 	return r, nil
