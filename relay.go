@@ -376,7 +376,7 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	go func() {
 		defer r.rmLiveHop(src.ID, dst.ID)
 
-		count, err := io.Copy(s, bs)
+		count, err := io.CopyBuffer(s, bs, make([]byte, 4096))
 		if err != nil {
 			log.Debugf("relay copy error: %s", err)
 			// Reset both.
@@ -390,7 +390,7 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	}()
 
 	go func() {
-		count, err := io.Copy(bs, s)
+		count, err := io.CopyBuffer(bs, s, make([]byte, 4096))
 		if err != nil {
 			log.Debugf("relay copy error: %s", err)
 			// Reset both.
