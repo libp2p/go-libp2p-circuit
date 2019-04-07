@@ -40,6 +40,8 @@ type Relay struct {
 
 	incoming chan *Conn
 
+	bufPool sync.Pool
+
 	relays map[peer.ID]struct{}
 	mx     sync.Mutex
 
@@ -85,6 +87,11 @@ func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ..
 		incoming: make(chan *Conn),
 		relays:   make(map[peer.ID]struct{}),
 		liveHops: make(map[peer.ID]map[peer.ID]int),
+		bufPool: sync.Pool{
+			New: func() interface{} {
+				return make([]byte, 4096)
+			},
+		},
 	}
 
 	for _, opt := range opts {
@@ -376,7 +383,10 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	go func() {
 		defer r.rmLiveHop(src.ID, dst.ID)
 
-		count, err := io.CopyBuffer(s, bs, make([]byte, 4096))
+		buf := r.bufPool.Get().([]byte)
+		defer r.bufPool.Put(buf)
+
+		count, err := io.CopyBuffer(s, bs, buf)
 		if err != nil {
 			log.Debugf("relay copy error: %s", err)
 			// Reset both.
@@ -390,7 +400,10 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	}()
 
 	go func() {
-		count, err := io.CopyBuffer(bs, s, make([]byte, 4096))
+		buf := r.bufPool.Get().([]byte)
+		defer r.bufPool.Put(buf)
+
+		count, err := io.CopyBuffer(bs, s, buf)
 		if err != nil {
 			log.Debugf("relay copy error: %s", err)
 			// Reset both.
