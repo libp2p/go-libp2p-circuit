@@ -10,6 +10,7 @@ import (
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
 
 	logging "github.com/ipfs/go-log"
+	pool "github.com/libp2p/go-buffer-pool"
 	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -376,7 +377,10 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	go func() {
 		defer r.rmLiveHop(src.ID, dst.ID)
 
-		count, err := io.Copy(s, bs)
+		buf := pool.Get(4096)
+		defer pool.Put(buf)
+
+		count, err := io.CopyBuffer(s, bs, buf)
 		if err != nil {
 			log.Debugf("relay copy error: %s", err)
 			// Reset both.
@@ -390,7 +394,10 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	}()
 
 	go func() {
-		count, err := io.Copy(bs, s)
+		buf := pool.Get(4096)
+		defer pool.Put(buf)
+
+		count, err := io.CopyBuffer(bs, s, buf)
 		if err != nil {
 			log.Debugf("relay copy error: %s", err)
 			// Reset both.
