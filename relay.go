@@ -10,6 +10,7 @@ import (
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
 
 	logging "github.com/ipfs/go-log"
+	pool "github.com/libp2p/go-buffer-pool"
 	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -40,7 +41,7 @@ type Relay struct {
 
 	incoming chan *Conn
 
-	bufPool sync.Pool
+	bufPool pool.BufferPool
 
 	relays map[peer.ID]struct{}
 	mx     sync.Mutex
@@ -87,11 +88,6 @@ func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ..
 		incoming: make(chan *Conn),
 		relays:   make(map[peer.ID]struct{}),
 		liveHops: make(map[peer.ID]map[peer.ID]int),
-		bufPool: sync.Pool{
-			New: func() interface{} {
-				return make([]byte, 4096)
-			},
-		},
 	}
 
 	for _, opt := range opts {
@@ -383,7 +379,7 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	go func() {
 		defer r.rmLiveHop(src.ID, dst.ID)
 
-		buf := r.bufPool.Get().([]byte)
+		buf := r.bufPool.Get(4096)
 		defer r.bufPool.Put(buf)
 
 		count, err := io.CopyBuffer(s, bs, buf)
@@ -400,7 +396,7 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	}()
 
 	go func() {
-		buf := r.bufPool.Get().([]byte)
+		buf := r.bufPool.Get(4096)
 		defer r.bufPool.Put(buf)
 
 		count, err := io.CopyBuffer(bs, s, buf)
