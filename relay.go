@@ -41,8 +41,6 @@ type Relay struct {
 
 	incoming chan *Conn
 
-	bufPool pool.BufferPool
-
 	relays map[peer.ID]struct{}
 	mx     sync.Mutex
 
@@ -379,8 +377,8 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	go func() {
 		defer r.rmLiveHop(src.ID, dst.ID)
 
-		buf := r.bufPool.Get(4096)
-		defer r.bufPool.Put(buf)
+		buf := pool.Get(4096)
+		defer pool.Put(buf)
 
 		count, err := io.CopyBuffer(s, bs, buf)
 		if err != nil {
@@ -396,8 +394,8 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	}()
 
 	go func() {
-		buf := r.bufPool.Get(4096)
-		defer r.bufPool.Put(buf)
+		buf := pool.Get(4096)
+		defer pool.Put(buf)
 
 		count, err := io.CopyBuffer(bs, s, buf)
 		if err != nil {
