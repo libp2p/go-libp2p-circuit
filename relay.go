@@ -323,6 +323,7 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	// stop handshake
 	rd := newDelimitedReader(bs, maxMessageSize)
 	wr := newDelimitedWriter(bs)
+	defer rd.Close()
 
 	msg.Type = pb.CircuitRelay_STOP.Enum()
 

@@ -68,6 +68,13 @@ func newDelimitedReader(r io.Reader, maxSize int) *delimitedReader {
 	return &delimitedReader{r: r, buf: pool.Get(maxSize)}
 }
 
+func (d *delimitedReader) Close() {
+	if d.buf != nil {
+		pool.Put(d.buf)
+		d.buf = nil
+	}
+}
+
 func (d *delimitedReader) ReadByte() (byte, error) {
 	buf := d.buf[:1]
 	_, err := d.r.Read(buf)
