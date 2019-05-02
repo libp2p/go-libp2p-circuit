@@ -25,8 +25,11 @@ const ProtoID = "/libp2p/circuit/relay/0.1.0"
 
 const maxMessageSize = 4096
 
-var RelayAcceptTimeout = time.Minute
-var HopConnectTimeout = 10 * time.Second
+var (
+	RelayAcceptTimeout   = 10 * time.Second
+	HopConnectTimeout    = 30 * time.Second
+	StopHandshakeTimeout = 1 * time.Minute
+)
 
 // Relay is the relay transport and service.
 type Relay struct {
@@ -328,6 +331,9 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	wr := newDelimitedWriter(bs)
 	defer rd.Close()
 
+	// set handshake deadline
+	bs.SetDeadline(time.Now().Add(StopHandshakeTimeout))
+
 	msg.Type = pb.CircuitRelay_STOP.Enum()
 
 	err = wr.WriteMsg(msg)
@@ -372,6 +378,9 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 
 	// relay connection
 	log.Infof("relaying connection between %s and %s", src.ID.Pretty(), dst.ID.Pretty())
+
+	// reset deadline
+	bs.SetDeadline(time.Time{})
 
 	r.addLiveHop(src.ID, dst.ID)
 
