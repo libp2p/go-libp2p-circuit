@@ -328,6 +328,9 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	wr := newDelimitedWriter(bs)
 	defer rd.Close()
 
+	// set handshake deadline
+	bs.SetDeadline(time.Now().Add(1 * time.Minute))
+
 	msg.Type = pb.CircuitRelay_STOP.Enum()
 
 	err = wr.WriteMsg(msg)
@@ -372,6 +375,9 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 
 	// relay connection
 	log.Infof("relaying connection between %s and %s", src.ID.Pretty(), dst.ID.Pretty())
+
+	// reset deadline
+	bs.SetDeadline(time.Time{})
 
 	r.addLiveHop(src.ID, dst.ID)
 
