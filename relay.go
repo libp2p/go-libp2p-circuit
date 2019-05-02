@@ -26,9 +26,9 @@ const ProtoID = "/libp2p/circuit/relay/0.1.0"
 const maxMessageSize = 4096
 
 var (
-	RelayAcceptTimeout   = time.Minute
-	HopConnectTimeout    = 10 * time.Second
-	StopHandshakeTimeout = time.Minute
+	RelayAcceptTimeout   = 10 * time.Second
+	HopConnectTimeout    = 30 * time.Second
+	StopHandshakeTimeout = 1 * time.Minute
 )
 
 // Relay is the relay transport and service.
