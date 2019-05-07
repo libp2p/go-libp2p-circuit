@@ -31,8 +31,8 @@ var (
 	HopConnectTimeout    = 30 * time.Second
 	StopHandshakeTimeout = 1 * time.Minute
 
-	HopStreamBuffer = 4096
-	HopStreamLimit  = 1 << 19 // 512K hops for 1M goroutines
+	HopStreamBufferSize = 4096
+	HopStreamLimit      = 1 << 19 // 512K hops for 1M goroutines
 )
 
 // Relay is the relay transport and service.
@@ -52,8 +52,8 @@ type Relay struct {
 	mx     sync.Mutex
 
 	// atomic counters
-	sCount  int32
-	lhCount int32
+	streamCount  int32
+	liveHopCount int32
 }
 
 // RelayOpts are options for configuring the relay transport.
@@ -117,15 +117,15 @@ func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ..
 }
 
 func (r *Relay) addLiveHop(from, to peer.ID) {
-	atomic.AddInt32(&r.lhCount, 1)
+	atomic.AddInt32(&r.liveHopCount, 1)
 }
 
 func (r *Relay) rmLiveHop(from, to peer.ID) {
-	atomic.AddInt32(&r.lhCount, -1)
+	atomic.AddInt32(&r.liveHopCount, -1)
 }
 
 func (r *Relay) GetActiveHops() int32 {
-	return atomic.LoadInt32(&r.lhCount)
+	return atomic.LoadInt32(&r.liveHopCount)
 }
 
 func (r *Relay) DialPeer(ctx context.Context, relay pstore.PeerInfo, dest pstore.PeerInfo) (*Conn, error) {
@@ -253,11 +253,11 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 		return
 	}
 
-	sCount := atomic.AddInt32(&r.sCount, 1)
-	lhCount := atomic.LoadInt32(&r.lhCount)
-	defer atomic.AddInt32(&r.sCount, -1)
+	streamCount := atomic.AddInt32(&r.streamCount, 1)
+	liveHopCount := atomic.LoadInt32(&r.liveHopCount)
+	defer atomic.AddInt32(&r.streamCount, -1)
 
-	if (sCount + lhCount) > int32(HopStreamLimit) {
+	if (streamCount + liveHopCount) > int32(HopStreamLimit) {
 		log.Warning("hop stream limit exceeded; resetting stream")
 		s.Reset()
 		return
@@ -369,7 +369,7 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	go func() {
 		defer r.rmLiveHop(src.ID, dst.ID)
 
-		buf := pool.Get(HopStreamBuffer)
+		buf := pool.Get(HopStreamBufferSize)
 		defer pool.Put(buf)
 
 		count, err := io.CopyBuffer(s, bs, buf)
@@ -386,7 +386,7 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	}()
 
 	go func() {
-		buf := pool.Get(HopStreamBuffer)
+		buf := pool.Get(HopStreamBufferSize)
 		defer pool.Put(buf)
 
 		count, err := io.CopyBuffer(bs, s, buf)
