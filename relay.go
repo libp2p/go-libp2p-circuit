@@ -118,10 +118,15 @@ func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ..
 
 func (r *Relay) addLiveHop(from, to peer.ID) {
 	atomic.AddInt32(&r.liveHopCount, 1)
+	r.host.ConnManager().UpsertTag(from, "relay-hop-stream", func(v int) int { return v + 1 })
+	r.host.ConnManager().UpsertTag(to, "relay-hop-stream", func(v int) int { return v + 1 })
 }
 
 func (r *Relay) rmLiveHop(from, to peer.ID) {
 	atomic.AddInt32(&r.liveHopCount, -1)
+	r.host.ConnManager().UpsertTag(from, "relay-hop-stream", func(v int) int { return v - 1 })
+	r.host.ConnManager().UpsertTag(to, "relay-hop-stream", func(v int) int { return v - 1 })
+
 }
 
 func (r *Relay) GetActiveHops() int32 {
@@ -364,10 +369,13 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 
 	r.addLiveHop(src.ID, dst.ID)
 
+	var wg sync.WaitGroup
+	wg.Add(2)
+
 	// Don't reset streams after finishing or the other side will get an
 	// error, not an EOF.
 	go func() {
-		defer r.rmLiveHop(src.ID, dst.ID)
+		defer wg.Done()
 
 		buf := pool.Get(HopStreamBufferSize)
 		defer pool.Put(buf)
@@ -386,6 +394,8 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	}()
 
 	go func() {
+		defer wg.Done()
+
 		buf := pool.Get(HopStreamBufferSize)
 		defer pool.Put(buf)
 
@@ -400,6 +410,11 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 			bs.Close()
 		}
 		log.Debugf("relayed %d bytes from %s to %s", count, src.ID.Pretty(), dst.ID.Pretty())
+	}()
+
+	go func() {
+		wg.Wait()
+		r.rmLiveHop(src.ID, dst.ID)
 	}()
 }
 
