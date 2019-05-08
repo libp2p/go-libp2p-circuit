@@ -3,6 +3,7 @@ package relay
 import (
 	"fmt"
 	"net"
+	"time"
 
 	inet "github.com/libp2p/go-libp2p-net"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
@@ -11,7 +12,7 @@ import (
 )
 
 type Conn struct {
-	inet.Stream
+	stream inet.Stream
 	remote pstore.PeerInfo
 }
 
@@ -28,9 +29,33 @@ func (n *NetAddr) String() string {
 	return fmt.Sprintf("relay[%s-%s]", n.Remote, n.Relay)
 }
 
+func (c *Conn) Close() error {
+	return c.stream.Reset()
+}
+
+func (c *Conn) Read(buf []byte) (int, error) {
+	return c.stream.Read(buf)
+}
+
+func (c *Conn) Write(buf []byte) (int, error) {
+	return c.stream.Write(buf)
+}
+
+func (c *Conn) SetDeadline(t time.Time) error {
+	return c.stream.SetDeadline(t)
+}
+
+func (c *Conn) SetReadDeadline(t time.Time) error {
+	return c.stream.SetReadDeadline(t)
+}
+
+func (c *Conn) SetWriteDeadline(t time.Time) error {
+	return c.stream.SetReadDeadline(t)
+}
+
 func (c *Conn) RemoteAddr() net.Addr {
 	return &NetAddr{
-		Relay:  c.Conn().RemotePeer().Pretty(),
+		Relay:  c.stream.Conn().RemotePeer().Pretty(),
 		Remote: c.remote.ID.Pretty(),
 	}
 }
@@ -38,7 +63,7 @@ func (c *Conn) RemoteAddr() net.Addr {
 // TODO: is it okay to cast c.Conn().RemotePeer() into a multiaddr? might be "user input"
 func (c *Conn) RemoteMultiaddr() ma.Multiaddr {
 	proto := ma.ProtocolWithCode(ma.P_P2P).Name
-	peerid := c.Conn().RemotePeer().Pretty()
+	peerid := c.stream.Conn().RemotePeer().Pretty()
 	p2paddr := ma.StringCast(fmt.Sprintf("/%s/%s", proto, peerid))
 
 	circaddr := ma.Cast(ma.CodeToVarint(P_CIRCUIT))
@@ -46,11 +71,11 @@ func (c *Conn) RemoteMultiaddr() ma.Multiaddr {
 }
 
 func (c *Conn) LocalMultiaddr() ma.Multiaddr {
-	return c.Conn().LocalMultiaddr()
+	return c.stream.Conn().LocalMultiaddr()
 }
 
 func (c *Conn) LocalAddr() net.Addr {
-	na, err := manet.ToNetAddr(c.Conn().LocalMultiaddr())
+	na, err := manet.ToNetAddr(c.stream.Conn().LocalMultiaddr())
 	if err != nil {
 		log.Error("failed to convert local multiaddr to net addr:", err)
 		return nil

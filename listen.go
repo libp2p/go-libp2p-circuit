@@ -25,10 +25,10 @@ func (r *Relay) Listener() *RelayListener {
 func (l *RelayListener) Accept() (manet.Conn, error) {
 	select {
 	case c := <-l.incoming:
-		err := l.Relay().writeResponse(c.Stream, pb.CircuitRelay_SUCCESS)
+		err := l.Relay().writeResponse(c.stream, pb.CircuitRelay_SUCCESS)
 		if err != nil {
 			log.Debugf("error writing relay response: %s", err.Error())
-			c.Stream.Reset()
+			c.stream.Reset()
 			return nil, err
 		}
 
