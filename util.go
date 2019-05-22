@@ -49,6 +49,18 @@ func peerInfoToPeer(pi pstore.PeerInfo) *pb.CircuitRelay_Peer {
 	return p
 }
 
+func incrementTag(v int) int {
+	return v + 1
+}
+
+func decrementTag(v int) int {
+	if v > 0 {
+		return v - 1
+	} else {
+		return v
+	}
+}
+
 type delimitedReader struct {
 	r   io.Reader
 	buf []byte

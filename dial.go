@@ -16,6 +16,7 @@ func (d *RelayTransport) Dial(ctx context.Context, a ma.Multiaddr, p peer.ID) (t
 	if err != nil {
 		return nil, err
 	}
+	c.tagHop()
 	return d.upgrader.UpgradeOutbound(ctx, d, c, p)
 }
 

@@ -118,14 +118,14 @@ func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ..
 
 func (r *Relay) addLiveHop(from, to peer.ID) {
 	atomic.AddInt32(&r.liveHopCount, 1)
-	r.host.ConnManager().UpsertTag(from, "relay-hop-stream", func(v int) int { return v + 1 })
-	r.host.ConnManager().UpsertTag(to, "relay-hop-stream", func(v int) int { return v + 1 })
+	r.host.ConnManager().UpsertTag(from, "relay-hop-stream", incrementTag)
+	r.host.ConnManager().UpsertTag(to, "relay-hop-stream", incrementTag)
 }
 
 func (r *Relay) rmLiveHop(from, to peer.ID) {
 	atomic.AddInt32(&r.liveHopCount, -1)
-	r.host.ConnManager().UpsertTag(from, "relay-hop-stream", func(v int) int { return v - 1 })
-	r.host.ConnManager().UpsertTag(to, "relay-hop-stream", func(v int) int { return v - 1 })
+	r.host.ConnManager().UpsertTag(from, "relay-hop-stream", decrementTag)
+	r.host.ConnManager().UpsertTag(to, "relay-hop-stream", decrementTag)
 
 }
 
@@ -180,7 +180,7 @@ func (r *Relay) DialPeer(ctx context.Context, relay pstore.PeerInfo, dest pstore
 		return nil, RelayError{msg.GetCode()}
 	}
 
-	return &Conn{stream: s, remote: dest}, nil
+	return &Conn{stream: s, remote: dest, relay: r}, nil
 }
 
 func (r *Relay) Matches(addr ma.Multiaddr) bool {
@@ -438,7 +438,7 @@ func (r *Relay) handleStopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	}
 
 	select {
-	case r.incoming <- &Conn{stream: s, remote: src}:
+	case r.incoming <- &Conn{stream: s, remote: src, relay: r}:
 	case <-time.After(RelayAcceptTimeout):
 		r.handleError(s, pb.CircuitRelay_STOP_RELAY_REFUSED)
 	}

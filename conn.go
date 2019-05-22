@@ -14,6 +14,7 @@ import (
 type Conn struct {
 	stream inet.Stream
 	remote pstore.PeerInfo
+	relay  *Relay
 }
 
 type NetAddr struct {
@@ -30,6 +31,7 @@ func (n *NetAddr) String() string {
 }
 
 func (c *Conn) Close() error {
+	c.untagHop()
 	return c.stream.Reset()
 }
 
@@ -58,6 +60,14 @@ func (c *Conn) RemoteAddr() net.Addr {
 		Relay:  c.stream.Conn().RemotePeer().Pretty(),
 		Remote: c.remote.ID.Pretty(),
 	}
+}
+
+func (c *Conn) tagHop() {
+	c.relay.host.ConnManager().UpsertTag(c.stream.Conn().RemotePeer(), "relay-hop-stream", incrementTag)
+}
+
+func (c *Conn) untagHop() {
+	c.relay.host.ConnManager().UpsertTag(c.stream.Conn().RemotePeer(), "relay-hop-stream", decrementTag)
 }
 
 // TODO: is it okay to cast c.Conn().RemotePeer() into a multiaddr? might be "user input"
