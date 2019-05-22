@@ -185,7 +185,7 @@ func (r *Relay) DialPeer(ctx context.Context, relay pstore.PeerInfo, dest pstore
 		return nil, RelayError{msg.GetCode()}
 	}
 
-	return &Conn{stream: s, remote: dest, relay: r}, nil
+	return &Conn{stream: s, remote: dest, host: r.host}, nil
 }
 
 func (r *Relay) Matches(addr ma.Multiaddr) bool {
@@ -443,7 +443,7 @@ func (r *Relay) handleStopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	}
 
 	select {
-	case r.incoming <- &Conn{stream: s, remote: src, relay: r}:
+	case r.incoming <- &Conn{stream: s, remote: src, host: r.host}:
 	case <-time.After(RelayAcceptTimeout):
 		r.handleError(s, pb.CircuitRelay_STOP_RELAY_REFUSED)
 	}
