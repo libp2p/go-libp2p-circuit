@@ -213,13 +213,18 @@ func (r *Relay) CanHop(ctx context.Context, id peer.ID) (bool, error) {
 		return false, err
 	}
 
+	if err := wr.Close(); err != nil {
+		s.Reset()
+		return false, err
+	}
+
 	msg.Reset()
 
 	if err := rd.ReadMsg(&msg); err != nil {
 		s.Reset()
 		return false, err
 	}
-	if err := inet.FullClose(s); err != nil {
+	if err := inet.AwaitEOF(s); err != nil {
 		return false, err
 	}
 
