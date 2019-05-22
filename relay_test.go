@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net"
 	"testing"
 	"time"
 
@@ -72,22 +74,38 @@ func TestBasicRelay(t *testing.T) {
 
 	r3 := newTestRelay(t, ctx, hosts[2])
 
+	var (
+		conn1, conn2 net.Conn
+		done         = make(chan struct{})
+	)
+
+	defer func() {
+		<-done
+		if conn1 != nil {
+			conn1.Close()
+		}
+		if conn2 != nil {
+			conn2.Close()
+		}
+	}()
+
 	msg := []byte("relay works!")
 	go func() {
+		defer close(done)
 		list := r3.Listener()
 
-		con, err := list.Accept()
+		var err error
+		conn1, err = list.Accept()
 		if err != nil {
 			t.Error(err)
 			return
 		}
 
-		_, err = con.Write(msg)
+		_, err = conn1.Write(msg)
 		if err != nil {
 			t.Error(err)
 			return
 		}
-		con.Close()
 	}()
 
 	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
@@ -96,18 +114,20 @@ func TestBasicRelay(t *testing.T) {
 	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
-	con, err := r1.DialPeer(rctx, rinfo, dinfo)
+	var err error
+	conn2, err = r1.DialPeer(rctx, rinfo, dinfo)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	data, err := ioutil.ReadAll(con)
+	result := make([]byte, len(msg))
+	_, err = io.ReadFull(conn2, result)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !bytes.Equal(data, msg) {
-		t.Fatal("message was incorrect:", string(data))
+	if !bytes.Equal(result, msg) {
+		t.Fatal("message was incorrect:", string(result))
 	}
 }
 
@@ -186,22 +206,38 @@ func TestBasicRelayDial(t *testing.T) {
 	_ = newTestRelay(t, ctx, hosts[1], OptHop)
 	r3 := newTestRelay(t, ctx, hosts[2])
 
+	var (
+		conn1, conn2 net.Conn
+		done         = make(chan struct{})
+	)
+
+	defer func() {
+		<-done
+		if conn1 != nil {
+			conn1.Close()
+		}
+		if conn2 != nil {
+			conn2.Close()
+		}
+	}()
+
 	msg := []byte("relay works!")
 	go func() {
+		defer close(done)
 		list := r3.Listener()
 
-		con, err := list.Accept()
+		var err error
+		conn1, err = list.Accept()
 		if err != nil {
 			t.Error(err)
 			return
 		}
 
-		_, err = con.Write(msg)
+		_, err = conn1.Write(msg)
 		if err != nil {
 			t.Error(err)
 			return
 		}
-		con.Close()
 	}()
 
 	addr := ma.StringCast(fmt.Sprintf("/ipfs/%s/p2p-circuit", hosts[1].ID().Pretty()))
@@ -209,12 +245,14 @@ func TestBasicRelayDial(t *testing.T) {
 	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
-	con, err := r1.Dial(rctx, addr, hosts[2].ID())
+	var err error
+	conn2, err = r1.Dial(rctx, addr, hosts[2].ID())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	data, err := ioutil.ReadAll(con)
+	data := make([]byte, len(msg))
+	_, err = io.ReadFull(conn2, data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,22 +279,38 @@ func TestUnspecificRelayDial(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
+	var (
+		conn1, conn2 net.Conn
+		done         = make(chan struct{})
+	)
+
+	defer func() {
+		<-done
+		if conn1 != nil {
+			conn1.Close()
+		}
+		if conn2 != nil {
+			conn2.Close()
+		}
+	}()
+
 	msg := []byte("relay works!")
 	go func() {
+		defer close(done)
 		list := r3.Listener()
 
-		con, err := list.Accept()
+		var err error
+		conn1, err = list.Accept()
 		if err != nil {
 			t.Error(err)
 			return
 		}
 
-		_, err = con.Write(msg)
+		_, err = conn1.Write(msg)
 		if err != nil {
 			t.Error(err)
 			return
 		}
-		con.Close()
 	}()
 
 	addr := ma.StringCast(fmt.Sprintf("/p2p-circuit"))
@@ -264,12 +318,14 @@ func TestUnspecificRelayDial(t *testing.T) {
 	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
-	con, err := r1.Dial(rctx, addr, hosts[2].ID())
+	var err error
+	conn2, err = r1.Dial(rctx, addr, hosts[2].ID())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	data, err := ioutil.ReadAll(con)
+	data := make([]byte, len(msg))
+	_, err = io.ReadFull(conn2, data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -368,22 +424,38 @@ func TestActiveRelay(t *testing.T) {
 
 	r3 := newTestRelay(t, ctx, hosts[2])
 
+	var (
+		conn1, conn2 net.Conn
+		done         = make(chan struct{})
+	)
+
+	defer func() {
+		<-done
+		if conn1 != nil {
+			conn1.Close()
+		}
+		if conn2 != nil {
+			conn2.Close()
+		}
+	}()
+
 	msg := []byte("relay works!")
 	go func() {
+		defer close(done)
 		list := r3.Listener()
 
-		con, err := list.Accept()
+		var err error
+		conn2, err = list.Accept()
 		if err != nil {
 			t.Error(err)
 			return
 		}
 
-		_, err = con.Write(msg)
+		_, err = conn2.Write(msg)
 		if err != nil {
 			t.Error(err)
 			return
 		}
-		con.Close()
 	}()
 
 	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
@@ -392,12 +464,14 @@ func TestActiveRelay(t *testing.T) {
 	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
-	con, err := r1.DialPeer(rctx, rinfo, dinfo)
+	var err error
+	conn2, err = r1.DialPeer(rctx, rinfo, dinfo)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	data, err := ioutil.ReadAll(con)
+	data := make([]byte, len(msg))
+	_, err = io.ReadFull(conn2, data)
 	if err != nil {
 		t.Fatal(err)
 	}
