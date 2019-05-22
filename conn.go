@@ -50,7 +50,7 @@ func (c *Conn) SetReadDeadline(t time.Time) error {
 }
 
 func (c *Conn) SetWriteDeadline(t time.Time) error {
-	return c.stream.SetReadDeadline(t)
+	return c.stream.SetWriteDeadline(t)
 }
 
 func (c *Conn) RemoteAddr() net.Addr {
