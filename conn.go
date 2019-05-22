@@ -5,6 +5,7 @@ import (
 	"net"
 	"time"
 
+	host "github.com/libp2p/go-libp2p-host"
 	inet "github.com/libp2p/go-libp2p-net"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
@@ -14,6 +15,7 @@ import (
 type Conn struct {
 	stream inet.Stream
 	remote pstore.PeerInfo
+	host   host.Host
 }
 
 type NetAddr struct {
@@ -30,6 +32,7 @@ func (n *NetAddr) String() string {
 }
 
 func (c *Conn) Close() error {
+	c.untagHop()
 	return c.stream.Reset()
 }
 
@@ -58,6 +61,20 @@ func (c *Conn) RemoteAddr() net.Addr {
 		Relay:  c.stream.Conn().RemotePeer().Pretty(),
 		Remote: c.remote.ID.Pretty(),
 	}
+}
+
+// Increment the underlying relay connection tag by 1, thus increasing its protection from
+// connection pruning. This ensures that connections to relays are not accidentally closed,
+// by the connection manager, taking with them all the relayed connections (that may themselves
+// be protected).
+func (c *Conn) tagHop() {
+	c.host.ConnManager().UpsertTag(c.stream.Conn().RemotePeer(), "relay-hop-stream", incrementTag)
+}
+
+// Decrement the underlying relay connection tag by 1; this is performed when we close the
+// relayed connection.
+func (c *Conn) untagHop() {
+	c.host.ConnManager().UpsertTag(c.stream.Conn().RemotePeer(), "relay-hop-stream", decrementTag)
 }
 
 // TODO: is it okay to cast c.Conn().RemotePeer() into a multiaddr? might be "user input"
