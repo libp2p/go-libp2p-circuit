@@ -62,10 +62,16 @@ func (c *Conn) RemoteAddr() net.Addr {
 	}
 }
 
+// Increment the underlying relay connection tag by 1, thus increasing its protection from
+// connection pruning. This ensures that connections to relays are not accidentally closed,
+// by the connection manager, taking with them all the relayed connections (that may themselves
+// be protected).
 func (c *Conn) tagHop() {
 	c.relay.host.ConnManager().UpsertTag(c.stream.Conn().RemotePeer(), "relay-hop-stream", incrementTag)
 }
 
+// Decrement the underlying relay connection tag by 1; this is performed when we close the
+// relayed connection.
 func (c *Conn) untagHop() {
 	c.relay.host.ConnManager().UpsertTag(c.stream.Conn().RemotePeer(), "relay-hop-stream", decrementTag)
 }

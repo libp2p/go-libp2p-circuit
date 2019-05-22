@@ -116,12 +116,17 @@ func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ..
 	return r, nil
 }
 
+// Increment the live hop count and increment the connection manager tags by 1 for the two
+// sides of the hop stream. This ensures that connections with many hop streams will be protected
+// from pruning, thus minimizing disruption from connection trimming in a relay node.
 func (r *Relay) addLiveHop(from, to peer.ID) {
 	atomic.AddInt32(&r.liveHopCount, 1)
 	r.host.ConnManager().UpsertTag(from, "relay-hop-stream", incrementTag)
 	r.host.ConnManager().UpsertTag(to, "relay-hop-stream", incrementTag)
 }
 
+// Decrement the live hpo count and decrement the connection manager tags for the two sides
+// of the hop stream.
 func (r *Relay) rmLiveHop(from, to peer.ID) {
 	atomic.AddInt32(&r.liveHopCount, -1)
 	r.host.ConnManager().UpsertTag(from, "relay-hop-stream", decrementTag)
