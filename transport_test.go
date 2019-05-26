@@ -10,9 +10,10 @@ import (
 
 	. "github.com/libp2p/go-libp2p-circuit"
 
-	host "github.com/libp2p/go-libp2p-host"
-	inet "github.com/libp2p/go-libp2p-net"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peerstore"
+
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 	ma "github.com/multiformats/go-multiaddr"
@@ -45,7 +46,7 @@ func testSetupRelay(t *testing.T, ctx context.Context) []host.Host {
 
 	time.Sleep(100 * time.Millisecond)
 
-	handler := func(s inet.Stream) {
+	handler := func(s network.Stream) {
 		_, err := s.Write(msg)
 		if err != nil {
 			t.Error(err)
@@ -72,7 +73,7 @@ func TestFullAddressTransportDial(t *testing.T) {
 	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
-	hosts[0].Peerstore().AddAddrs(hosts[2].ID(), []ma.Multiaddr{addr}, pstore.TempAddrTTL)
+	hosts[0].Peerstore().AddAddrs(hosts[2].ID(), []ma.Multiaddr{addr}, peerstore.TempAddrTTL)
 
 	s, err := hosts[0].NewStream(rctx, hosts[2].ID(), TestProto)
 	if err != nil {
@@ -103,7 +104,7 @@ func TestSpecificRelayTransportDial(t *testing.T) {
 	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
-	hosts[0].Peerstore().AddAddrs(hosts[2].ID(), []ma.Multiaddr{addr}, pstore.TempAddrTTL)
+	hosts[0].Peerstore().AddAddrs(hosts[2].ID(), []ma.Multiaddr{addr}, peerstore.TempAddrTTL)
 
 	s, err := hosts[0].NewStream(rctx, hosts[2].ID(), TestProto)
 	if err != nil {
@@ -134,7 +135,7 @@ func TestUnspecificRelayTransportDial(t *testing.T) {
 	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
 
-	hosts[0].Peerstore().AddAddrs(hosts[2].ID(), []ma.Multiaddr{addr}, pstore.TempAddrTTL)
+	hosts[0].Peerstore().AddAddrs(hosts[2].ID(), []ma.Multiaddr{addr}, peerstore.TempAddrTTL)
 
 	s, err := hosts[0].NewStream(rctx, hosts[2].ID(), TestProto)
 	if err != nil {
