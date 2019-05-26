@@ -5,16 +5,17 @@ import (
 	"net"
 	"time"
 
-	host "github.com/libp2p/go-libp2p-host"
-	inet "github.com/libp2p/go-libp2p-net"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peer"
+
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
 )
 
 type Conn struct {
-	stream inet.Stream
-	remote pstore.PeerInfo
+	stream network.Stream
+	remote peer.AddrInfo
 	host   host.Host
 }
 

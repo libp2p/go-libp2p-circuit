@@ -14,7 +14,8 @@ import (
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
 
 	bhost "github.com/libp2p/go-libp2p-blankhost"
-	host "github.com/libp2p/go-libp2p-host"
+	"github.com/libp2p/go-libp2p-core/host"
+
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 	ma "github.com/multiformats/go-multiaddr"
