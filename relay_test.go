@@ -193,7 +193,6 @@ func TestRelayReset(t *testing.T) {
 
 func TestBasicRelayDial(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	hosts := getNetHosts(t, ctx, 3)
 
@@ -213,6 +212,7 @@ func TestBasicRelayDial(t *testing.T) {
 	)
 
 	defer func() {
+		cancel()
 		<-done
 		if conn1 != nil {
 			conn1.Close()
