@@ -20,8 +20,11 @@ var Protocol = ma.Protocol{
 	VCode: ma.CodeToVarint(P_CIRCUIT),
 }
 
+var circuitAddr ma.Multiaddr
+
 func init() {
 	ma.AddProtocol(Protocol)
+	circuitAddr = ma.Cast(Protocol.VCode)
 }
 
 var _ transport.Transport = (*RelayTransport)(nil)
