@@ -11,21 +11,13 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-const P_CIRCUIT = 290
+// Deprecated: use ma.P_CIRCUIT
+const P_CIRCUIT = ma.P_CIRCUIT
 
-var Protocol = ma.Protocol{
-	Code:  P_CIRCUIT,
-	Size:  0,
-	Name:  "p2p-circuit",
-	VCode: ma.CodeToVarint(P_CIRCUIT),
-}
+// Deprecated: use ma.ProtocolWithCode(P_CIRCUIT)
+var Protocol = ma.ProtocolWithCode(P_CIRCUIT)
 
-var circuitAddr ma.Multiaddr
-
-func init() {
-	ma.AddProtocol(Protocol)
-	circuitAddr = ma.Cast(Protocol.VCode)
-}
+var circuitAddr = ma.Cast(Protocol.VCode)
 
 var _ transport.Transport = (*RelayTransport)(nil)
 
