@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/jonhoo/drwmutex"
+
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
 
 	"github.com/libp2p/go-libp2p-core/helpers"
@@ -54,13 +56,19 @@ type Relay struct {
 	relays map[peer.ID]struct{}
 	mx     sync.Mutex
 
+	// Allowed os to know who can listen when hop is disabled
+	allowed map[peer.ID]struct{}
+	// An drwmutex is used here because even if drwmutex is slower in monocore
+	// we expect very few Lock but a lot of RLock on a lot of core.
+	al drwmutex.DRWMutex
+
 	// atomic counters
 	streamCount  int32
 	liveHopCount int32
 }
 
 // RelayOpts are options for configuring the relay transport.
-type RelayOpt int
+type RelayOpt interface{}
 
 var (
 	// OptActive configures the relay transport to actively establish
@@ -95,18 +103,27 @@ func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ..
 		self:     h.ID(),
 		incoming: make(chan *Conn),
 		relays:   make(map[peer.ID]struct{}),
+		allowed:  make(map[peer.ID]struct{}),
+		al:       drwmutex.New(),
 	}
 
-	for _, opt := range opts {
-		switch opt {
-		case OptActive:
-			r.active = true
-		case OptHop:
-			r.hop = true
-		case OptDiscovery:
-			r.discovery = true
+	for i, v := range opts {
+		switch opt := v.(type) {
+		case int:
+			switch opt {
+			case OptActive:
+				r.active = true
+			case OptHop:
+				r.hop = true
+			case OptDiscovery:
+				r.discovery = true
+			default:
+				return nil, fmt.Errorf("unrecognized option: %d", opt)
+			}
+		case peer.ID:
+			r.allowed[opt] = struct{}{}
 		default:
-			return nil, fmt.Errorf("unrecognized option: %d", opt)
+			return nil, fmt.Errorf("unrecognized type: %T, for params %d", opt, i)
 		}
 	}
 
@@ -126,6 +143,28 @@ func (r *Relay) addLiveHop(from, to peer.ID) {
 	atomic.AddInt32(&r.liveHopCount, 1)
 	r.host.ConnManager().UpsertTag(from, "relay-hop-stream", incrementTag)
 	r.host.ConnManager().UpsertTag(to, "relay-hop-stream", incrementTag)
+}
+
+// Allow a peer to hop even if hop is disabled.
+func (r *Relay) Allow(p peer.ID) {
+	r.al.Lock()
+	r.allowed[p] = struct{}{}
+	r.al.Unlock()
+}
+
+// Unallow a peer to hop, note that doesn't do anything if hop is allowed.
+func (r *Relay) Unallow(p peer.ID) {
+	r.al.Lock()
+	delete(r.allowed, p)
+	r.al.Unlock()
+}
+
+// Check if a peer can hop even if hop is disabled.
+func (r *Relay) IsAllowed(p peer.ID) bool {
+	l := r.al.RLock()
+	_, is := r.allowed[p]
+	l.Unlock()
+	return is
 }
 
 // Decrement the live hpo count and decrement the connection manager tags for the two sides
@@ -266,7 +305,7 @@ func (r *Relay) handleNewStream(s network.Stream) {
 }
 
 func (r *Relay) handleHopStream(s network.Stream, msg *pb.CircuitRelay) {
-	if !r.hop {
+	if !r.isAllowedToHop(s.Conn().RemotePeer()) {
 		r.handleError(s, pb.CircuitRelay_HOP_CANT_SPEAK_RELAY)
 		return
 	}
@@ -457,10 +496,21 @@ func (r *Relay) handleStopStream(s network.Stream, msg *pb.CircuitRelay) {
 	}
 }
 
+func (r *Relay) isAllowedToHop(p peer.ID) bool {
+	if r.hop {
+		return true
+	} else {
+		l := r.al.RLock()
+		_, ok := r.allowed[p]
+		l.Unlock()
+		return ok
+	}
+}
+
 func (r *Relay) handleCanHop(s network.Stream, msg *pb.CircuitRelay) {
 	var err error
 
-	if r.hop {
+	if r.isAllowedToHop(s.Conn().RemotePeer()) {
 		err = r.writeResponse(s, pb.CircuitRelay_SUCCESS)
 	} else {
 		err = r.writeResponse(s, pb.CircuitRelay_HOP_CANT_SPEAK_RELAY)
