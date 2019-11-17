@@ -71,7 +71,7 @@ func TestBasicRelay(t *testing.T) {
 
 	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
 
-	newTestRelay(t, ctx, hosts[1], OptHop)
+	newTestRelay(t, ctx, hosts[1], OptHopAll)
 
 	r3 := newTestRelay(t, ctx, hosts[2])
 
@@ -145,7 +145,7 @@ func TestRelayReset(t *testing.T) {
 
 	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
 
-	newTestRelay(t, ctx, hosts[1], OptHop)
+	newTestRelay(t, ctx, hosts[1], OptHopAll)
 
 	r3 := newTestRelay(t, ctx, hosts[2])
 
@@ -203,7 +203,7 @@ func TestBasicRelayDial(t *testing.T) {
 
 	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
 
-	_ = newTestRelay(t, ctx, hosts[1], OptHop)
+	_ = newTestRelay(t, ctx, hosts[1], OptHopAll)
 	r3 := newTestRelay(t, ctx, hosts[2])
 
 	var (
@@ -271,7 +271,7 @@ func TestUnspecificRelayDial(t *testing.T) {
 
 	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
 
-	newTestRelay(t, ctx, hosts[1], OptHop)
+	newTestRelay(t, ctx, hosts[1], OptHopAll)
 
 	r3 := newTestRelay(t, ctx, hosts[2])
 
@@ -386,7 +386,7 @@ func TestRelayNoDestConnection(t *testing.T) {
 
 	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
 
-	newTestRelay(t, ctx, hosts[1], OptHop)
+	newTestRelay(t, ctx, hosts[1], OptHopAll)
 
 	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
 	dinfo := hosts[2].Peerstore().PeerInfo(hosts[2].ID())
@@ -421,7 +421,7 @@ func TestActiveRelay(t *testing.T) {
 
 	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
 
-	newTestRelay(t, ctx, hosts[1], OptHop, OptActive)
+	newTestRelay(t, ctx, hosts[1], OptHopAll, OptActive)
 
 	r3 := newTestRelay(t, ctx, hosts[2])
 
@@ -494,7 +494,7 @@ func TestRelayCanHop(t *testing.T) {
 
 	r1 := newTestRelay(t, ctx, hosts[0])
 
-	newTestRelay(t, ctx, hosts[1], OptHop)
+	newTestRelay(t, ctx, hosts[1], OptHopAll)
 
 	canhop, err := r1.CanHop(ctx, hosts[1].ID())
 	if err != nil {
