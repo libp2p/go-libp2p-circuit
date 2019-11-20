@@ -31,7 +31,7 @@ func testSetupRelay(t *testing.T, ctx context.Context) []host.Host {
 		t.Fatal(err)
 	}
 
-	err = AddRelayTransport(ctx, hosts[1], swarmt.GenUpgrader(hosts[1].Network().(*swarm.Swarm)), OptHopAll)
+	err = AddRelayTransport(ctx, hosts[1], swarmt.GenUpgrader(hosts[1].Network().(*swarm.Swarm)), OptHop)
 	if err != nil {
 		t.Fatal(err)
 	}

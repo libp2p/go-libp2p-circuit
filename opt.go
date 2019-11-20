@@ -12,19 +12,17 @@ func OptActive(r *Relay) error {
 	return nil
 }
 
-// OptHopAll configures the relay transport to accept requests to relay
+// OptHop configures the relay transport to accept requests to relay
 // traffic on behalf of third-parties. Unless OptActive is specified,
 // this will only relay traffic between peers already connected to this
 // node.
-func OptHopAll(r *Relay) error {
+// Note: This is not needed to enable hopping with a filter.
+func OptHop(r *Relay) error {
 	r.isAllowedToHop = func(_ network.Stream) bool {
 		return true
 	}
 	return nil
 }
-
-// DEPRECATED: Use OptHopAll instead.
-var OptHop = OptHopAll
 
 // OptDiscovery configures this relay transport to discover new relays
 // by probing every new peer. You almost _certainly_ don't want to
