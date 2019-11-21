@@ -11,7 +11,7 @@ pf := filter.New(peer1, peer2)
 ```
 You can then create your relay and apply the acceptor.
 ```go
-r, _ := relay.NewRelay(ctx, host, upgrader, relay.OptApplyAcceptor(pf.GetAcceptor()))
+r, _ := relay.NewRelay(ctx, host, upgrader, relay.OptHop, relay.OptApplyAcceptor(pf.GetAcceptor()))
 ```
 That will filter who can hop.
 

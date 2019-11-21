@@ -1,9 +1,5 @@
 package relay
 
-import (
-	"github.com/libp2p/go-libp2p-core/network"
-)
-
 // OptActive configures the relay transport to actively establish
 // outbound connections on behalf of clients. You probably don't want to
 // enable this unless you know what you're doing.
@@ -16,11 +12,8 @@ func OptActive(r *Relay) error {
 // traffic on behalf of third-parties. Unless OptActive is specified,
 // this will only relay traffic between peers already connected to this
 // node.
-// Note: This is not needed to enable hopping with a filter.
 func OptHop(r *Relay) error {
-	r.isAllowedToHop = func(_ network.Stream) bool {
-		return true
-	}
+	r.hop = true
 	return nil
 }
 

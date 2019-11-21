@@ -46,6 +46,7 @@ type Relay struct {
 	self     peer.ID
 
 	active    bool
+	hop       bool
 	discovery bool
 
 	incoming chan *Conn
@@ -86,7 +87,7 @@ func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ..
 		incoming: make(chan *Conn),
 		relays:   make(map[peer.ID]struct{}),
 		isAllowedToHop: func(_ network.Stream) bool {
-			return false
+			return true
 		},
 	}
 
@@ -255,8 +256,12 @@ func (r *Relay) handleNewStream(s network.Stream) {
 }
 
 func (r *Relay) handleHopStream(s network.Stream, msg *pb.CircuitRelay) {
-	if !r.isAllowedToHop(s) {
+	if !r.hop {
 		r.handleError(s, pb.CircuitRelay_HOP_CANT_SPEAK_RELAY)
+		return
+	}
+	if !r.isAllowedToHop(s) {
+		r.handleError(s, pb.CircuitRelay_HOP_RELAY_REFUSED)
 		return
 	}
 
@@ -449,8 +454,12 @@ func (r *Relay) handleStopStream(s network.Stream, msg *pb.CircuitRelay) {
 func (r *Relay) handleCanHop(s network.Stream, msg *pb.CircuitRelay) {
 	var err error
 
-	if r.isAllowedToHop(s) {
-		err = r.writeResponse(s, pb.CircuitRelay_SUCCESS)
+	if r.hop {
+		if r.isAllowedToHop(s) {
+			err = r.writeResponse(s, pb.CircuitRelay_SUCCESS)
+		} else {
+			err = r.writeResponse(s, pb.CircuitRelay_HOP_RELAY_REFUSED)
+		}
 	} else {
 		err = r.writeResponse(s, pb.CircuitRelay_HOP_CANT_SPEAK_RELAY)
 	}
