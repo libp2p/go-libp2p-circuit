@@ -1,5 +1,9 @@
 package relay
 
+import (
+	"github.com/libp2p/go-libp2p-core/network"
+)
+
 // OptActive configures the relay transport to actively establish
 // outbound connections on behalf of clients. You probably don't want to
 // enable this unless you know what you're doing.
@@ -28,9 +32,24 @@ func OptDiscovery(r *Relay) error {
 // ApplyAcceptor will return an applier applying the acceptor
 // `func(network.Stream) bool` to the relay, if the acceptor return true the
 // peer is allowed to hop over the current node.
-func OptApplyAcceptor(f Acceptor) RelayOpt {
+func OptApplyAcceptor(f *Acceptor) RelayOpt {
 	return func(r *Relay) error {
-		r.isAllowedToHop = f
+		r.filter = f
 		return nil
 	}
 }
+
+// Acceptor is used to filter who can hop on a relay, HopConn and CanHop are
+// splited due to the need of it for OOB auth.
+type Acceptor struct {
+	// HopConn return true if this conn is allowed to hop.
+	HopConn func(network.Stream) bool
+	// CanConn return true if this conn may hop.
+	CanHop func(network.Stream) bool
+}
+
+func returnTrue(_ network.Stream) bool {
+	return true
+}
+
+var defaultFilter = &Acceptor{HopConn: returnTrue, CanHop: returnTrue}

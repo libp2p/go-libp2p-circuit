@@ -54,7 +54,7 @@ type Relay struct {
 	relays map[peer.ID]struct{}
 	mx     sync.Mutex
 
-	isAllowedToHop Acceptor
+	filter *Acceptor
 
 	// atomic counters
 	streamCount  int32
@@ -63,11 +63,6 @@ type Relay struct {
 
 // RelayOpts are function for configuring the relay transport.
 type RelayOpt func(*Relay) error
-
-// Acceptor return true if this conn is allowed to hop on this peer.
-// Its a `network.Stream` and not `peer.ID` because we excpect user to maybe
-// filter by by subnet or by transport.
-type Acceptor func(network.Stream) bool
 
 type RelayError struct {
 	Code pb.CircuitRelay_Status
@@ -86,9 +81,7 @@ func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ..
 		self:     h.ID(),
 		incoming: make(chan *Conn),
 		relays:   make(map[peer.ID]struct{}),
-		isAllowedToHop: func(_ network.Stream) bool {
-			return true
-		},
+		filter:   defaultFilter,
 	}
 
 	// That to avoid reclaiming for each loop.
@@ -260,7 +253,7 @@ func (r *Relay) handleHopStream(s network.Stream, msg *pb.CircuitRelay) {
 		r.handleError(s, pb.CircuitRelay_HOP_CANT_SPEAK_RELAY)
 		return
 	}
-	if !r.isAllowedToHop(s) {
+	if !r.filter.HopConn(s) {
 		r.handleError(s, pb.CircuitRelay_HOP_RELAY_REFUSED)
 		return
 	}
@@ -455,7 +448,7 @@ func (r *Relay) handleCanHop(s network.Stream, msg *pb.CircuitRelay) {
 	var err error
 
 	if r.hop {
-		if r.isAllowedToHop(s) {
+		if r.filter.CanHop(s) {
 			err = r.writeResponse(s, pb.CircuitRelay_SUCCESS)
 		} else {
 			err = r.writeResponse(s, pb.CircuitRelay_HOP_RELAY_REFUSED)
