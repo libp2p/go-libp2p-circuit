@@ -3,7 +3,6 @@ module github.com/libp2p/go-libp2p-circuit
 require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/ipfs/go-log v0.0.1
-	github.com/jonhoo/drwmutex v0.0.0-20190519183033-0cffe0733098
 	github.com/libp2p/go-buffer-pool v0.0.2
 	github.com/libp2p/go-libp2p-blankhost v0.1.4
 	github.com/libp2p/go-libp2p-core v0.2.4

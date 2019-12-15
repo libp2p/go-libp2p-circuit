@@ -2,6 +2,7 @@ package relay
 
 import (
 	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peer"
 )
 
 // OptActive configures the relay transport to actively establish
@@ -32,7 +33,7 @@ func OptDiscovery(r *Relay) error {
 // ApplyAcceptor will return an applier applying the acceptor
 // `func(network.Stream) bool` to the relay, if the acceptor return true the
 // peer is allowed to hop over the current node.
-func OptApplyAcceptor(f *Acceptor) RelayOpt {
+func OptApplyAcceptor(f Acceptor) RelayOpt {
 	return func(r *Relay) error {
 		r.filter = f
 		return nil
@@ -43,13 +44,16 @@ func OptApplyAcceptor(f *Acceptor) RelayOpt {
 // splited due to the need of it for OOB auth.
 type Acceptor struct {
 	// HopConn return true if this conn is allowed to hop.
-	HopConn func(network.Stream) bool
+	HopConn func(network.Stream, peer.AddrInfo) bool
 	// CanConn return true if this conn may hop.
 	CanHop func(network.Stream) bool
 }
 
-func returnTrue(_ network.Stream) bool {
+func defaultHopConn(_ network.Stream, _ peer.AddrInfo) bool {
+	return true
+}
+func defaultCanHop(_ network.Stream) bool {
 	return true
 }
 
-var defaultFilter = &Acceptor{HopConn: returnTrue, CanHop: returnTrue}
+var defaultFilter = Acceptor{HopConn: defaultHopConn, CanHop: defaultCanHop}

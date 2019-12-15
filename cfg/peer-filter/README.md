@@ -2,7 +2,7 @@
 
 The peer filter allow to filter who can hop on your node.
 
-To use need first create an PeerFilter object:
+To use it first create an PeerFilter object:
 
 You may add some peer id allowed to hop here, that way faster than doing it
 after the object creation.

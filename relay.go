@@ -54,7 +54,7 @@ type Relay struct {
 	relays map[peer.ID]struct{}
 	mx     sync.Mutex
 
-	filter *Acceptor
+	filter Acceptor
 
 	// atomic counters
 	streamCount  int32
@@ -253,10 +253,6 @@ func (r *Relay) handleHopStream(s network.Stream, msg *pb.CircuitRelay) {
 		r.handleError(s, pb.CircuitRelay_HOP_CANT_SPEAK_RELAY)
 		return
 	}
-	if !r.filter.HopConn(s) {
-		r.handleError(s, pb.CircuitRelay_HOP_RELAY_REFUSED)
-		return
-	}
 
 	streamCount := atomic.AddInt32(&r.streamCount, 1)
 	liveHopCount := atomic.LoadInt32(&r.liveHopCount)
@@ -287,6 +283,11 @@ func (r *Relay) handleHopStream(s network.Stream, msg *pb.CircuitRelay) {
 
 	if dst.ID == r.self {
 		r.handleError(s, pb.CircuitRelay_HOP_CANT_RELAY_TO_SELF)
+		return
+	}
+
+	if !r.filter.HopConn(s, dst) {
+		r.handleError(s, pb.CircuitRelay_HOP_RELAY_REFUSED)
 		return
 	}
 
