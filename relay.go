@@ -81,7 +81,7 @@ func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ..
 		self:     h.ID(),
 		incoming: make(chan *Conn),
 		relays:   make(map[peer.ID]struct{}),
-		filter:   defaultFilter,
+		filter:   defaultFilter{},
 	}
 
 	// That to avoid reclaiming for each loop.

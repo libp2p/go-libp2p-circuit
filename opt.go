@@ -42,18 +42,18 @@ func OptApplyAcceptor(f Acceptor) RelayOpt {
 
 // Acceptor is used to filter who can hop on a relay, HopConn and CanHop are
 // splited due to the need of it for OOB auth.
-type Acceptor struct {
+type Acceptor interface {
 	// HopConn return true if this conn is allowed to hop.
-	HopConn func(network.Stream, peer.AddrInfo) bool
+	HopConn(network.Stream, peer.AddrInfo) bool
 	// CanConn return true if this conn may hop.
-	CanHop func(network.Stream) bool
+	CanHop(network.Stream) bool
 }
 
-func defaultHopConn(_ network.Stream, _ peer.AddrInfo) bool {
-	return true
-}
-func defaultCanHop(_ network.Stream) bool {
-	return true
-}
+type defaultFilter struct{}
 
-var defaultFilter = Acceptor{HopConn: defaultHopConn, CanHop: defaultCanHop}
+func (_ defaultFilter) HopConn(_ network.Stream, _ peer.AddrInfo) bool {
+	return true
+}
+func (_ defaultFilter) CanHop(_ network.Stream) bool {
+	return true
+}

@@ -8,6 +8,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
+var _ relay.Acceptor = (*PeerFilter)(nil)
+
 type PeerFilter struct {
 	// Allowed store who can hop.
 	allowed map[peer.ID]struct{}
@@ -25,18 +27,25 @@ func New(ids ...peer.ID) *PeerFilter {
 }
 
 // Allow allows a peer to hop.
-func (pf *PeerFilter) Allow(p peer.ID) {
+// Note: its way faster to allow multiple peers at once due to locking time.
+func (pf *PeerFilter) Allow(ps ...peer.ID) {
 	pf.mx.Lock()
-	pf.allowed[p] = struct{}{}
+	for _, p := range ps {
+		pf.allowed[p] = struct{}{}
+	}
 	pf.mx.Unlock()
 }
 
-// Unallow unallows a peer to hop, can be called freely with peer not allowed to hop.
-// Note: that will still be a bit costy, that will lock in write the whole map for a short period of time.
+// Unallow unallows some peers to hop.
+// Note: can be called freely with peer not allowed to hop, that will still be a
+// bit costy, that will lock in write the whole map for a short period of time.
 // Note: unallowing an node will not kill current hopping.
-func (pf *PeerFilter) Unallow(p peer.ID) {
+// Note: its way faster to unallow multiple peers at once due to locking time.
+func (pf *PeerFilter) Unallow(ps ...peer.ID) {
 	pf.mx.Lock()
-	delete(pf.allowed, p)
+	for _, p := range ps {
+		delete(pf.allowed, p)
+	}
 	pf.mx.Unlock()
 }
 
@@ -48,17 +57,12 @@ func (pf *PeerFilter) IsAllowed(p peer.ID) bool {
 	return is
 }
 
-func (pf *PeerFilter) handleHopConn(s network.Stream, dst peer.AddrInfo) bool {
+// Used by the relay.
+func (pf *PeerFilter) HopConn(s network.Stream, dst peer.AddrInfo) bool {
 	return pf.IsAllowed(s.Conn().RemotePeer()) || pf.IsAllowed(dst.ID)
 }
-func (pf *PeerFilter) handleCanHop(s network.Stream) bool {
-	return pf.IsAllowed(s.Conn().RemotePeer())
-}
 
-// GetAcceptor return the acceptor, the list can be edited after and change will be made.
-// Use `relay.OptApplyAcceptor` to transform it into an RelayOpt.
-// Note: unallowing an node will not kill current hopping.
-// Note: you can use the same acceptor or multiple acceptor from the same peerfilter on multiple relay.
-func (pf *PeerFilter) GetAcceptor() relay.Acceptor {
-	return relay.Acceptor{HopConn: pf.handleHopConn, CanHop: pf.handleCanHop}
+// Used by the relay.
+func (pf *PeerFilter) CanHop(s network.Stream) bool {
+	return pf.IsAllowed(s.Conn().RemotePeer())
 }
