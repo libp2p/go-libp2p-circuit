@@ -4,11 +4,13 @@ import (
 	"sync"
 
 	"github.com/libp2p/go-libp2p-circuit"
+	"github.com/libp2p/go-libp2p-circuit/cfg/utils"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
 var _ relay.Acceptor = (*PeerFilter)(nil)
+var _ utils.HalfAcceptor = (*PeerFilter)(nil)
 
 type PeerFilter struct {
 	// Allowed store who can hop.
@@ -57,12 +59,22 @@ func (pf *PeerFilter) IsAllowed(p peer.ID) bool {
 	return is
 }
 
+// Used by the utils.
+func (pf *PeerFilter) In(s network.Stream) bool {
+	return pf.IsAllowed(s.Conn().RemotePeer())
+}
+
+// Used by the utils.
+func (pf *PeerFilter) Out(dst peer.AddrInfo) bool {
+	return pf.IsAllowed(dst.ID)
+}
+
 // Used by the relay.
 func (pf *PeerFilter) HopConn(s network.Stream, dst peer.AddrInfo) bool {
-	return pf.IsAllowed(s.Conn().RemotePeer()) || pf.IsAllowed(dst.ID)
+	return pf.In(s) || pf.Out(dst)
 }
 
 // Used by the relay.
 func (pf *PeerFilter) CanHop(s network.Stream) bool {
-	return pf.IsAllowed(s.Conn().RemotePeer())
+	return pf.In(s)
 }

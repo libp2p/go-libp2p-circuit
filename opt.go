@@ -49,11 +49,18 @@ type Acceptor interface {
 	CanHop(network.Stream) bool
 }
 
-type defaultFilter struct{}
+// This filter filters nothing, it only return true.
+type DefaultFilter struct{}
 
-func (_ defaultFilter) HopConn(_ network.Stream, _ peer.AddrInfo) bool {
+func (_ DefaultFilter) In(_ network.Stream) bool {
 	return true
 }
-func (_ defaultFilter) CanHop(_ network.Stream) bool {
+func (_ DefaultFilter) Out(_ peer.AddrInfo) bool {
+	return true
+}
+func (_ DefaultFilter) HopConn(_ network.Stream, _ peer.AddrInfo) bool {
+	return true
+}
+func (_ DefaultFilter) CanHop(_ network.Stream) bool {
 	return true
 }

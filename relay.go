@@ -81,13 +81,11 @@ func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ..
 		self:     h.ID(),
 		incoming: make(chan *Conn),
 		relays:   make(map[peer.ID]struct{}),
-		filter:   defaultFilter{},
+		filter:   DefaultFilter{},
 	}
 
-	// That to avoid reclaiming for each loop.
-	var err error
 	for _, opt := range opts {
-		err = opt(r)
+		err := opt(r)
 		if err != nil {
 			return nil, err
 		}
