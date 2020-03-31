@@ -55,18 +55,24 @@ type Relay struct {
 }
 
 // RelayOpts are options for configuring the relay transport.
-type RelayOpt int
+type RelayOpt func(*Relay) error
 
 var (
 	// OptActive configures the relay transport to actively establish
 	// outbound connections on behalf of clients. You probably don't want to
 	// enable this unless you know what you're doing.
-	OptActive = RelayOpt(0)
+	OptActive RelayOpt = func(r *Relay) error {
+		r.active = true
+		return nil
+	}
 	// OptHop configures the relay transport to accept requests to relay
 	// traffic on behalf of third-parties. Unless OptActive is specified,
 	// this will only relay traffic between peers already connected to this
 	// node.
-	OptHop = RelayOpt(1)
+	OptHop = func(r *Relay) error {
+		r.hop = true
+		return nil
+	}
 	// OptDiscovery is a no-op. It was introduced as a way to probe new
 	// peers to see if they were willing to act as a relays. However, in
 	// practice, it's useless. While it does test to see if these peers are
@@ -75,7 +81,13 @@ var (
 	//
 	// This option may be re-enabled in the future but for now you shouldn't
 	// use it.
-	OptDiscovery = RelayOpt(2)
+	OptDiscovery = func(r *Relay) error {
+		log.Errorf(
+			"circuit.OptDiscovery is now a no-op: %s",
+			"dialing peers with a random relay is no longer supported",
+		)
+		return nil
+	}
 )
 
 type RelayError struct {
@@ -97,18 +109,8 @@ func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ..
 	}
 
 	for _, opt := range opts {
-		switch opt {
-		case OptActive:
-			r.active = true
-		case OptHop:
-			r.hop = true
-		case OptDiscovery:
-			log.Errorf(
-				"circuit.OptDiscovery is now a no-op: %s",
-				"dialing peers with a random relay is no longer supported",
-			)
-		default:
-			return nil, fmt.Errorf("unrecognized option: %d", opt)
+		if err := opt(r); err != nil {
+			return nil, err
 		}
 	}
 
