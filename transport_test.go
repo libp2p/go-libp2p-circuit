@@ -26,7 +26,7 @@ var msg = []byte("relay works!")
 func testSetupRelay(t *testing.T, ctx context.Context) []host.Host {
 	hosts := getNetHosts(t, ctx, 3)
 
-	err := AddRelayTransport(ctx, hosts[0], swarmt.GenUpgrader(hosts[0].Network().(*swarm.Swarm)), OptDiscovery)
+	err := AddRelayTransport(ctx, hosts[0], swarmt.GenUpgrader(hosts[0].Network().(*swarm.Swarm)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestSpecificRelayTransportDial(t *testing.T) {
 	}
 }
 
-func TestUnspecificRelayTransportDial(t *testing.T) {
+func TestUnspecificRelayTransportDialFails(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -137,17 +137,9 @@ func TestUnspecificRelayTransportDial(t *testing.T) {
 
 	hosts[0].Peerstore().AddAddrs(hosts[2].ID(), []ma.Multiaddr{addr}, peerstore.TempAddrTTL)
 
-	s, err := hosts[0].NewStream(rctx, hosts[2].ID(), TestProto)
-	if err != nil {
-		t.Fatal(err)
+	_, err = hosts[0].NewStream(rctx, hosts[2].ID(), TestProto)
+	if err == nil {
+		t.Fatal("dial to unspecified address should have failed")
 	}
 
-	data, err := ioutil.ReadAll(s)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Equal(data, msg) {
-		t.Fatal("message was incorrect:", string(data))
-	}
 }
