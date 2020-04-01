@@ -69,7 +69,7 @@ func TestBasicRelay(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
+	r1 := newTestRelay(t, ctx, hosts[0])
 
 	newTestRelay(t, ctx, hosts[1], OptHop)
 
@@ -143,7 +143,7 @@ func TestRelayReset(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
+	r1 := newTestRelay(t, ctx, hosts[0])
 
 	newTestRelay(t, ctx, hosts[1], OptHop)
 
@@ -201,7 +201,7 @@ func TestBasicRelayDial(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
+	r1 := newTestRelay(t, ctx, hosts[0])
 
 	_ = newTestRelay(t, ctx, hosts[1], OptHop)
 	r3 := newTestRelay(t, ctx, hosts[2])
@@ -263,13 +263,12 @@ func TestBasicRelayDial(t *testing.T) {
 	}
 }
 
-func TestUnspecificRelayDial(t *testing.T) {
+func TestUnspecificRelayDialFails(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	hosts := getNetHosts(t, ctx, 3)
 
-	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
+	r1 := newTestRelay(t, ctx, hosts[0])
 
 	newTestRelay(t, ctx, hosts[1], OptHop)
 
@@ -281,36 +280,22 @@ func TestUnspecificRelayDial(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	var (
-		conn1, conn2 net.Conn
-		done         = make(chan struct{})
+		done = make(chan struct{})
 	)
 
 	defer func() {
+		cancel()
 		<-done
-		if conn1 != nil {
-			conn1.Close()
-		}
-		if conn2 != nil {
-			conn2.Close()
-		}
 	}()
 
-	msg := []byte("relay works!")
 	go func() {
 		defer close(done)
 		list := r3.Listener()
 
 		var err error
-		conn1, err = list.Accept()
-		if err != nil {
-			t.Error(err)
-			return
-		}
-
-		_, err = conn1.Write(msg)
-		if err != nil {
-			t.Error(err)
-			return
+		_, err = list.Accept()
+		if err == nil {
+			t.Error("should not have received relay connection")
 		}
 	}()
 
@@ -320,19 +305,9 @@ func TestUnspecificRelayDial(t *testing.T) {
 	defer rcancel()
 
 	var err error
-	conn2, err = r1.Dial(rctx, addr, hosts[2].ID())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	data := make([]byte, len(msg))
-	_, err = io.ReadFull(conn2, data)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Equal(data, msg) {
-		t.Fatal("message was incorrect:", string(data))
+	_, err = r1.Dial(rctx, addr, hosts[2].ID())
+	if err == nil {
+		t.Fatal("expected dial with unspecified relay address to fail, even if we're connected to a relay")
 	}
 }
 
@@ -347,7 +322,7 @@ func TestRelayThroughNonHop(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
+	r1 := newTestRelay(t, ctx, hosts[0])
 
 	newTestRelay(t, ctx, hosts[1])
 
@@ -384,7 +359,7 @@ func TestRelayNoDestConnection(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
+	r1 := newTestRelay(t, ctx, hosts[0])
 
 	newTestRelay(t, ctx, hosts[1], OptHop)
 
@@ -419,7 +394,7 @@ func TestActiveRelay(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0], OptDiscovery)
+	r1 := newTestRelay(t, ctx, hosts[0])
 
 	newTestRelay(t, ctx, hosts[1], OptHop, OptActive)
 
