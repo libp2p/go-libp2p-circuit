@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -52,6 +53,10 @@ type Relay struct {
 	// atomic counters
 	streamCount  int32
 	liveHopCount int32
+
+	// per peer hop counters
+	mx       sync.Mutex
+	hopCount map[peer.ID]int
 }
 
 // RelayOpts are options for configuring the relay transport.
@@ -94,6 +99,7 @@ func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ..
 		ctx:      ctx,
 		self:     h.ID(),
 		incoming: make(chan *Conn),
+		hopCount: make(map[peer.ID]int),
 	}
 
 	for _, opt := range opts {
@@ -186,7 +192,7 @@ func (r *Relay) DialPeer(ctx context.Context, relay peer.AddrInfo, dest peer.Add
 		return nil, RelayError{msg.GetCode()}
 	}
 
-	return &Conn{stream: s, remote: dest, host: r.host}, nil
+	return &Conn{stream: s, remote: dest, host: r.host, relay: r}, nil
 }
 
 func (r *Relay) Matches(addr ma.Multiaddr) bool {
@@ -449,7 +455,7 @@ func (r *Relay) handleStopStream(s network.Stream, msg *pb.CircuitRelay) {
 	}
 
 	select {
-	case r.incoming <- &Conn{stream: s, remote: src, host: r.host}:
+	case r.incoming <- &Conn{stream: s, remote: src, host: r.host, relay: r}:
 	case <-time.After(RelayAcceptTimeout):
 		r.handleError(s, pb.CircuitRelay_STOP_RELAY_REFUSED)
 	}
