@@ -65,7 +65,15 @@ func TestFullAddressTransportDial(t *testing.T) {
 
 	hosts := testSetupRelay(t, ctx)
 
-	addr, err := ma.NewMultiaddr(fmt.Sprintf("%s/ipfs/%s/p2p-circuit/ipfs/%s", hosts[1].Addrs()[0].String(), hosts[1].ID().Pretty(), hosts[2].ID().Pretty()))
+	var relayAddr ma.Multiaddr
+	for _, addr := range hosts[1].Addrs() {
+		// skip relay addrs.
+		if _, err := addr.ValueForProtocol(ma.P_CIRCUIT); err != nil {
+			relayAddr = addr
+		}
+	}
+
+	addr, err := ma.NewMultiaddr(fmt.Sprintf("%s/p2p/%s/p2p-circuit/p2p/%s", relayAddr.String(), hosts[1].ID().Pretty(), hosts[2].ID().Pretty()))
 	if err != nil {
 		t.Fatal(err)
 	}

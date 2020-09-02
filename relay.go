@@ -10,7 +10,6 @@ import (
 
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
 
-	"github.com/libp2p/go-libp2p-core/helpers"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -207,6 +206,7 @@ func CanHop(ctx context.Context, host host.Host, id peer.ID) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	defer s.Close()
 
 	rd := newDelimitedReader(s, maxMessageSize)
 	wr := newDelimitedWriter(s)
@@ -225,9 +225,6 @@ func CanHop(ctx context.Context, host host.Host, id peer.ID) (bool, error) {
 
 	if err := rd.ReadMsg(&msg); err != nil {
 		s.Reset()
-		return false, err
-	}
-	if err := helpers.FullClose(s); err != nil {
 		return false, err
 	}
 
@@ -390,6 +387,8 @@ func (r *Relay) handleHopStream(s network.Stream, msg *pb.CircuitRelay) {
 	*goroutines = 2
 	done := func() {
 		if atomic.AddInt32(goroutines, -1) == 0 {
+			s.Close()
+			bs.Close()
 			r.rmLiveHop(src.ID, dst.ID)
 		}
 	}
@@ -410,7 +409,7 @@ func (r *Relay) handleHopStream(s network.Stream, msg *pb.CircuitRelay) {
 			bs.Reset()
 		} else {
 			// propagate the close
-			s.Close()
+			s.CloseWrite()
 		}
 		log.Debugf("relayed %d bytes from %s to %s", count, dst.ID.Pretty(), src.ID.Pretty())
 	}()
@@ -429,7 +428,7 @@ func (r *Relay) handleHopStream(s network.Stream, msg *pb.CircuitRelay) {
 			s.Reset()
 		} else {
 			// propagate the close
-			bs.Close()
+			bs.CloseWrite()
 		}
 		log.Debugf("relayed %d bytes from %s to %s", count, src.ID.Pretty(), dst.ID.Pretty())
 	}()
@@ -474,7 +473,7 @@ func (r *Relay) handleCanHop(s network.Stream, msg *pb.CircuitRelay) {
 		s.Reset()
 		log.Debugf("error writing relay response: %s", err.Error())
 	} else {
-		helpers.FullClose(s)
+		s.Close()
 	}
 }
 
@@ -485,7 +484,7 @@ func (r *Relay) handleError(s network.Stream, code pb.CircuitRelay_Status) {
 		s.Reset()
 		log.Debugf("error writing relay response: %s", err.Error())
 	} else {
-		helpers.FullClose(s)
+		s.Close()
 	}
 }
 
