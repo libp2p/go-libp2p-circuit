@@ -6,7 +6,7 @@ import (
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
 
 	ma "github.com/multiformats/go-multiaddr"
-	manet "github.com/multiformats/go-multiaddr-net"
+	manet "github.com/multiformats/go-multiaddr/net"
 )
 
 var _ manet.Listener = (*RelayListener)(nil)
