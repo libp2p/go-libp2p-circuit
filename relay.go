@@ -35,6 +35,8 @@ var (
 
 	HopStreamBufferSize = 4096
 	HopStreamLimit      = 1 << 19 // 512K hops for 1M goroutines
+
+	streamTimeout = 1 * time.Minute
 )
 
 // Relay is the relay transport and service.
@@ -240,7 +242,11 @@ func (r *Relay) CanHop(ctx context.Context, id peer.ID) (bool, error) {
 }
 
 func (r *Relay) handleNewStream(s network.Stream) {
+	s.SetReadDeadline(time.Now().Add(streamTimeout))
+
 	log.Infof("new relay stream from: %s", s.Conn().RemotePeer())
+
+
 
 	rd := newDelimitedReader(s, maxMessageSize)
 	defer rd.Close()
@@ -252,6 +258,8 @@ func (r *Relay) handleNewStream(s network.Stream) {
 		r.handleError(s, pb.CircuitRelay_MALFORMED_MESSAGE)
 		return
 	}
+	// reset stream deadline as message has been read
+	s.SetReadDeadline(time.Time{})
 
 	switch msg.GetType() {
 	case pb.CircuitRelay_HOP:
