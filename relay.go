@@ -246,8 +246,6 @@ func (r *Relay) handleNewStream(s network.Stream) {
 
 	log.Infof("new relay stream from: %s", s.Conn().RemotePeer())
 
-
-
 	rd := newDelimitedReader(s, maxMessageSize)
 	defer rd.Close()
 
