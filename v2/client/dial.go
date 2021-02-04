@@ -3,9 +3,10 @@ package client
 import (
 	"context"
 	"fmt"
+	"time"
 
 	pbv1 "github.com/libp2p/go-libp2p-circuit/pb"
-	//pbv2 "github.com/libp2p/go-libp2p-circuit/v2/pb"
+	pbv2 "github.com/libp2p/go-libp2p-circuit/v2/pb"
 	"github.com/libp2p/go-libp2p-circuit/v2/util"
 
 	"github.com/libp2p/go-libp2p-core/network"
@@ -75,8 +76,49 @@ func (c *Client) dialPeer(ctx context.Context, relay, dest peer.AddrInfo) (*Conn
 }
 
 func (c *Client) connectV2(s network.Stream, dest peer.AddrInfo) (*Conn, error) {
-	// TODO
-	return nil, nil
+	rd := util.NewDelimitedReader(s, maxMessageSize)
+	wr := util.NewDelimitedWriter(s)
+	defer rd.Close()
+
+	var msg pbv2.HopMessage
+
+	msg.Type = pbv2.HopMessage_CONNECT.Enum()
+	msg.Peer = util.PeerInfoToPeerV2(dest)
+
+	err := wr.WriteMsg(&msg)
+	if err != nil {
+		s.Reset()
+		return nil, err
+	}
+
+	msg.Reset()
+
+	err = rd.ReadMsg(&msg)
+	if err != nil {
+		s.Reset()
+		return nil, err
+	}
+
+	if msg.GetType() != pbv2.HopMessage_STATUS {
+		s.Reset()
+		return nil, fmt.Errorf("unexpected relay response; not a status message (%d)", msg.GetType())
+	}
+
+	status := msg.GetStatus()
+	if status != pbv2.Status_OK {
+		s.Reset()
+		return nil, fmt.Errorf("error opening relay circuit: %s (%d)", pbv2.Status_name[int32(status)], status)
+	}
+
+	var stat network.Stat
+	if limit := msg.GetLimit(); limit != nil {
+		stat.Transient = true
+		stat.Extra = make(map[interface{}]interface{})
+		stat.Extra[StatLimitDuration] = time.Duration(limit.GetDuration()) * time.Second
+		stat.Extra[StatLimitData] = limit.GetData()
+	}
+
+	return &Conn{stream: s, remote: dest, stat: stat, client: c}, nil
 }
 
 func (c *Client) connectV1(s network.Stream, dest peer.AddrInfo) (*Conn, error) {
@@ -91,6 +133,14 @@ func (c *Client) connectV1(s network.Stream, dest peer.AddrInfo) (*Conn, error) 
 	msg.DstPeer = util.PeerInfoToPeerV1(dest)
 
 	err := wr.WriteMsg(&msg)
+	if err != nil {
+		s.Reset()
+		return nil, err
+	}
+
+	msg.Reset()
+
+	err = rd.ReadMsg(&msg)
 	if err != nil {
 		s.Reset()
 		return nil, err
