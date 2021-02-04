@@ -2,8 +2,10 @@ package client
 
 import (
 	"context"
+	"sync"
 
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 
 	logging "github.com/ipfs/go-log"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
@@ -23,6 +25,9 @@ type Client struct {
 	upgrader *tptu.Upgrader
 
 	incoming chan accept
+
+	mx       sync.Mutex
+	hopCount map[peer.ID]int
 }
 
 type accept struct {
