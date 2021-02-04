@@ -15,6 +15,14 @@ import (
 // HopTagWeight is the connection manager weight for connections carrying relay hop streams
 var HopTagWeight = 5
 
+type statLimitDuration struct{}
+type statLimitData struct{}
+
+var (
+	StatLimitDuration = statLimitDuration{}
+	StatLimitData     = statLimitData{}
+)
+
 type Conn struct {
 	stream network.Stream
 	remote peer.AddrInfo
