@@ -38,8 +38,13 @@ type accept struct {
 // New constructs a new p2p-circuit/v2 client, attached to the given host and using the given
 // upgrader to perform connection upgrades.
 func New(ctx context.Context, h host.Host, upgrader *tptu.Upgrader) (*Client, error) {
-	// TODO
-	return nil, nil
+	return &Client{
+		ctx:      ctx,
+		host:     h,
+		upgrader: upgrader,
+		incoming: make(chan accept),
+		hopCount: make(map[peer.ID]int),
+	}, nil
 }
 
 // Start registers the circuit (client) protocol stream handlers
