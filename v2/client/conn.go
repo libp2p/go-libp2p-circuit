@@ -15,6 +15,7 @@ import (
 type Conn struct {
 	stream network.Stream
 	remote peer.AddrInfo
+	stat   network.Stat
 }
 
 type NetAddr struct {
@@ -91,6 +92,13 @@ func (c *Conn) RemoteAddr() net.Addr {
 		Relay:  c.stream.Conn().RemotePeer().Pretty(),
 		Remote: c.remote.ID.Pretty(),
 	}
+}
+
+// ConnStat interface
+var _ network.ConnStat = (*Conn)(nil)
+
+func (c *Conn) Stat() network.Stat {
+	return c.stat
 }
 
 // conn manager hop tagging
