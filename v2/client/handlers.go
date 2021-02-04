@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	streamTimeout = 1 * time.Minute
-	acceptTimeout = 10 * time.Second
+	StreamTimeout = 1 * time.Minute
+	AcceptTimeout = 10 * time.Second
 )
 
 func (c *Client) handleStreamV2(s network.Stream) {
@@ -22,7 +22,7 @@ func (c *Client) handleStreamV2(s network.Stream) {
 func (c *Client) handleStreamV1(s network.Stream) {
 	log.Debugf("new relay stream from: %s", s.Conn().RemotePeer())
 
-	s.SetReadDeadline(time.Now().Add(streamTimeout))
+	s.SetReadDeadline(time.Now().Add(StreamTimeout))
 
 	rd := util.NewDelimitedReader(s, maxMessageSize)
 	defer rd.Close()
@@ -96,7 +96,7 @@ func (c *Client) handleStreamV1(s network.Stream) {
 			return writeResponse(pbv1.CircuitRelay_SUCCESS)
 		},
 	}:
-	case <-time.After(acceptTimeout):
+	case <-time.After(AcceptTimeout):
 		handleError(pbv1.CircuitRelay_STOP_RELAY_REFUSED)
 	}
 }
