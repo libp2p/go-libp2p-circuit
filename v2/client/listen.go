@@ -16,8 +16,26 @@ func (c *Client) Listener() *Listener {
 }
 
 func (l *Listener) Accept() (manet.Conn, error) {
-	// TODO
-	return nil, nil
+	for {
+		select {
+		case evt := <-l.incoming:
+			err := evt.writeResponse()
+			if err != nil {
+				log.Debugf("error writing relay response: %s", err.Error())
+				evt.conn.stream.Reset()
+				continue
+			}
+
+			// TODO: Pretty print.
+			log.Debugf("accepted relay connection: %q", evt.conn)
+
+			evt.conn.tagHop()
+			return evt.conn, nil
+
+		case <-l.ctx.Done():
+			return nil, l.ctx.Err()
+		}
+	}
 }
 
 func (l *Listener) Addr() net.Addr {

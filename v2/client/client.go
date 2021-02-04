@@ -21,6 +21,13 @@ type Client struct {
 	ctx      context.Context
 	host     host.Host
 	upgrader *tptu.Upgrader
+
+	incoming chan accept
+}
+
+type accept struct {
+	conn          *Conn
+	writeResponse func() error
 }
 
 // New constructs a new p2p-circuit/v2 client, attached to the given host and using the given
@@ -30,7 +37,8 @@ func New(ctx context.Context, h host.Host, upgrader *tptu.Upgrader) (*Client, er
 	return nil, nil
 }
 
-// Start registers the circuit (client) protocol stream handlers and starts background goroutines
+// Start registers the circuit (client) protocol stream handlers
 func (c *Client) Start() {
-	// TODO
+	c.host.SetStreamHandler(ProtoIDv1, c.handleStreamV1)
+	c.host.SetStreamHandler(ProtoIDv2Stop, c.handleStreamV2)
 }
