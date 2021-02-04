@@ -1,0 +1,59 @@
+syntax = "proto2";
+
+package circuit.pb;
+
+message HopMessage {
+  enum Type {
+    RESERVE = 0;
+    CONNECT = 1;
+    STATUS = 2;
+  }
+
+  required Type type = 1;
+
+  optional Peer peer = 2;
+  optional Reservation reservation = 3;
+  optional Limit limit = 4;
+
+  optional Status status = 5;
+}
+
+message StopMessage {
+  enum Type {
+    CONNECT = 0;
+    STATUS = 1;
+  }
+
+  required Type type = 1;
+
+  optional Peer peer = 2;
+  optional Limit limit = 3;
+
+  optional Status status = 4;
+}
+
+message Peer {
+  required bytes id = 1;
+  repeated bytes addrs = 2;
+}
+
+message Reservation {
+  optional int32 ttl = 1; // seconds
+  optional Peer relay = 2;
+
+  // TODO: voucher
+}
+
+message Limit {
+  optional int32 duration = 1; // seconds
+  optional int64 data = 2;     // bytes
+}
+
+enum Status {
+  OK = 100;
+  NO_RESERVATION = 200;
+  RESERVATION_REFUSED = 201;
+  RESOURCE_LIMIT_EXCEEDED = 202;
+  CONNECTION_FAILED = 300;
+  MALFORMED_MESSAGE = 400;
+}
