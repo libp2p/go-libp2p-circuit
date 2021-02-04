@@ -16,6 +16,8 @@ type Conn struct {
 	stream network.Stream
 	remote peer.AddrInfo
 	stat   network.Stat
+
+	client *Client
 }
 
 type NetAddr struct {
