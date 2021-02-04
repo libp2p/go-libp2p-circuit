@@ -12,6 +12,9 @@ import (
 	manet "github.com/multiformats/go-multiaddr/net"
 )
 
+// HopTagWeight is the connection manager weight for connections carrying relay hop streams
+var HopTagWeight = 5
+
 type Conn struct {
 	stream network.Stream
 	remote peer.AddrInfo
@@ -105,9 +108,24 @@ func (c *Conn) Stat() network.Stat {
 
 // conn manager hop tagging
 func (c *Conn) tagHop() {
-	// TODO
+	c.client.mx.Lock()
+	defer c.client.mx.Unlock()
+
+	p := c.stream.Conn().RemotePeer()
+	c.client.hopCount[p]++
+	if c.client.hopCount[p] == 1 {
+		c.client.host.ConnManager().TagPeer(p, "relay-hop-stream", HopTagWeight)
+	}
 }
 
 func (c *Conn) untagHop() {
-	// TODO
+	c.client.mx.Lock()
+	defer c.client.mx.Unlock()
+
+	p := c.stream.Conn().RemotePeer()
+	c.client.hopCount[p]--
+	if c.client.hopCount[p] == 0 {
+		c.client.host.ConnManager().UntagPeer(p, "relay-hop-stream")
+		delete(c.client.hopCount, p)
+	}
 }
