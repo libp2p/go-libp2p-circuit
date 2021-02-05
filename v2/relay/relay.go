@@ -1,8 +1,11 @@
 package relay
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	pbv2 "github.com/libp2p/go-libp2p-circuit/v2/pb"
@@ -11,6 +14,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+
+	pool "github.com/libp2p/go-buffer-pool"
 
 	logging "github.com/ipfs/go-log"
 )
@@ -21,13 +26,19 @@ const (
 
 	ReservationTagWeight = 10
 
+	StreamTimeout    = time.Minute
+	ConnectTimeout   = 30 * time.Second
+	HandshakeTimeout = time.Minute
+
 	maxMessageSize = 4096
-	streamTimeout  = time.Minute
 )
 
 var log = logging.Logger("relay")
 
 type Relay struct {
+	ctx    context.Context
+	cancel func()
+
 	host host.Host
 	rc   Resources
 	acl  ACLFilter
@@ -35,11 +46,16 @@ type Relay struct {
 	mx      sync.Mutex
 	rsvp    map[peer.ID]time.Time
 	refresh map[peer.ID]time.Time
+	conns   map[peer.ID]int
 }
 
 func New(h host.Host, opts ...Option) (*Relay, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	r := &Relay{
-		host: h,
+		ctx:    ctx,
+		cancel: cancel,
+		host:   h,
 		// TODO
 	}
 
@@ -64,7 +80,7 @@ func (r *Relay) Close() error {
 }
 
 func (r *Relay) handleStream(s network.Stream) {
-	s.SetReadDeadline(time.Now().Add(streamTimeout))
+	s.SetReadDeadline(time.Now().Add(StreamTimeout))
 
 	log.Infof("new relay stream from: %s", s.Conn().RemotePeer())
 
@@ -145,11 +161,206 @@ func (r *Relay) handleReserve(s network.Stream, msg *pbv2.HopMessage) {
 }
 
 func (r *Relay) handleConnect(s network.Stream, msg *pbv2.HopMessage) {
-	// TODO
+	src := s.Conn().RemotePeer()
+	dest, err := util.PeerToPeerInfoV2(msg.GetPeer())
+	if err != nil {
+		r.handleError(s, pbv2.Status_MALFORMED_MESSAGE)
+		return
+	}
+
+	if r.acl != nil && !r.acl.AllowConnect(src, s.Conn().RemoteMultiaddr(), dest.ID) {
+		log.Debugf("refusing connection from %s to %s; permission denied", src, dest.ID)
+		r.handleError(s, pbv2.Status_PERMISSION_DENIED)
+		return
+	}
+
+	r.mx.Lock()
+	_, rsvp := r.rsvp[dest.ID]
+	if !rsvp {
+		r.mx.Unlock()
+		log.Debugf("refusing connection from %s to %s; no reservation", src, dest.ID)
+		r.handleError(s, pbv2.Status_NO_RESERVATION)
+		return
+	}
+
+	srcConns := r.conns[src]
+	if srcConns >= r.rc.MaxCircuits {
+		r.mx.Unlock()
+		log.Debugf("refusing connection from %s to %s; too many connections from %s", src, dest.ID, src)
+		r.handleError(s, pbv2.Status_RESOURCE_LIMIT_EXCEEDED)
+		return
+	}
+	r.conns[src]++
+
+	destConns := r.conns[dest.ID]
+	if destConns >= r.rc.MaxCircuits {
+		r.conns[src]--
+		r.mx.Unlock()
+		log.Debugf("refusing connection from %s to %s; too many connecitons to %s", src, dest.ID, dest.ID)
+		r.handleError(s, pbv2.Status_RESOURCE_LIMIT_EXCEEDED)
+		return
+	}
+	r.conns[dest.ID]++
+	r.mx.Unlock()
+
+	cleanup := func() {
+		r.mx.Lock()
+		r.conns[src]--
+		r.conns[dest.ID]--
+		r.mx.Unlock()
+	}
+
+	ctx, cancel := context.WithTimeout(r.ctx, ConnectTimeout)
+	defer cancel()
+
+	ctx = network.WithNoDial(ctx, "relay connect")
+
+	bs, err := r.host.NewStream(ctx, dest.ID, ProtoIDv2Stop)
+	if err != nil {
+		log.Debugf("error opening relay stream to %s: %s", dest.ID, err)
+		cleanup()
+		r.handleError(s, pbv2.Status_CONNECTION_FAILED)
+		return
+	}
+
+	// handshake
+	rd := util.NewDelimitedReader(bs, maxMessageSize)
+	wr := util.NewDelimitedWriter(bs)
+	defer rd.Close()
+
+	var stopmsg pbv2.StopMessage
+	stopmsg.Type = pbv2.StopMessage_CONNECT.Enum()
+	stopmsg.Peer = util.PeerInfoToPeerV2(peer.AddrInfo{ID: src})
+	stopmsg.Limit = r.makeLimitMsg(dest.ID)
+
+	bs.SetDeadline(time.Now().Add(HandshakeTimeout))
+
+	err = wr.WriteMsg(&stopmsg)
+	if err != nil {
+		log.Debugf("error writing stop handshake")
+		bs.Reset()
+		cleanup()
+		r.handleError(s, pbv2.Status_CONNECTION_FAILED)
+		return
+	}
+
+	stopmsg.Reset()
+
+	err = rd.ReadMsg(&stopmsg)
+	if err != nil {
+		log.Debugf("error reading stop response: %s", err.Error())
+		bs.Reset()
+		cleanup()
+		r.handleError(s, pbv2.Status_CONNECTION_FAILED)
+		return
+	}
+
+	if t := stopmsg.GetType(); t != pbv2.StopMessage_STATUS {
+		log.Debugf("unexpected stop response; not a status message (%d)", t)
+		bs.Reset()
+		cleanup()
+		r.handleError(s, pbv2.Status_CONNECTION_FAILED)
+		return
+	}
+
+	if status := stopmsg.GetStatus(); status != pbv2.Status_OK {
+		log.Debugf("relay stop failure: %d", status)
+		bs.Reset()
+		cleanup()
+		r.handleError(s, pbv2.Status_CONNECTION_FAILED)
+		return
+	}
+
+	var response pbv2.HopMessage
+	response.Status = pbv2.Status_OK.Enum()
+	response.Limit = r.makeLimitMsg(dest.ID)
+
+	wr = util.NewDelimitedWriter(s)
+	err = wr.WriteMsg(&response)
+	if err != nil {
+		log.Debugf("error writing relay response: %s", err)
+		bs.Reset()
+		s.Reset()
+		cleanup()
+		return
+	}
+
+	// reset deadline
+	bs.SetDeadline(time.Time{})
+
+	log.Infof("relaying connection from %s to %s", src, dest.ID)
+
+	goroutines := new(int32)
+	*goroutines = 2
+
+	done := func() {
+		if atomic.AddInt32(goroutines, -1) == 0 {
+			s.Close()
+			bs.Close()
+			cleanup()
+		}
+	}
+
+	if r.rc.Limit != nil {
+		deadline := time.Now().Add(r.rc.Limit.Duration)
+		s.SetDeadline(deadline)
+		bs.SetDeadline(deadline)
+		go r.relayLimited(s, bs, src, dest.ID, r.rc.Limit.Data, done)
+		go r.relayLimited(bs, s, dest.ID, src, r.rc.Limit.Data, done)
+	} else {
+		go r.relayUnlimited(s, bs, src, dest.ID, done)
+		go r.relayUnlimited(bs, s, dest.ID, src, done)
+	}
+}
+
+func (r *Relay) relayLimited(src, dest network.Stream, srcID, destID peer.ID, limit int64, done func()) {
+	defer done()
+
+	buf := pool.Get(r.rc.BufferSize)
+	defer pool.Put(buf)
+
+	limitedSrc := io.LimitReader(src, limit)
+
+	count, err := io.CopyBuffer(dest, limitedSrc, buf)
+	if err != nil {
+		log.Debugf("relay copy error: %s", err)
+		// Reset both.
+		src.Reset()
+		dest.Reset()
+	} else {
+		// propagate the close
+		dest.CloseWrite()
+		if count == limit {
+			// we've reached the limit, discard further input
+			src.CloseRead()
+		}
+	}
+
+	log.Debugf("relayed %d bytes from %s to %s", count, srcID, destID)
+}
+
+func (r *Relay) relayUnlimited(src, dest network.Stream, srcID, destID peer.ID, done func()) {
+	defer done()
+
+	buf := pool.Get(r.rc.BufferSize)
+	defer pool.Put(buf)
+
+	count, err := io.CopyBuffer(dest, src, buf)
+	if err != nil {
+		log.Debugf("relay copy error: %s", err)
+		// Reset both.
+		src.Reset()
+		dest.Reset()
+	} else {
+		// propagate the close
+		dest.CloseWrite()
+	}
+
+	log.Debugf("relayed %d bytes from %s to %s", count, srcID, destID)
 }
 
 func (r *Relay) handleError(s network.Stream, status pbv2.Status) {
-	log.Warnf("relay error: %s (%d)", pbv2.Status_name[int32(status)], status)
+	log.Debugf("relay error: %s (%d)", pbv2.Status_name[int32(status)], status)
 	err := r.writeResponse(s, status, nil, nil)
 	if err != nil {
 		s.Reset()
