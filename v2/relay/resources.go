@@ -10,9 +10,10 @@ type Resources struct {
 	ReservationTTL  time.Duration
 	MaxReservations int
 	MaxCircuits     int
+	BufferSize      int
 }
 
 type RelayLimit struct {
 	Duration time.Duration
-	Data     int
+	Data     int64
 }
