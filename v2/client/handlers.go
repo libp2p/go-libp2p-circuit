@@ -55,7 +55,7 @@ func (c *Client) handleStreamV2(s network.Stream) {
 	s.SetReadDeadline(time.Time{})
 
 	if msg.GetType() != pbv2.StopMessage_CONNECT {
-		handleError(pbv2.Status_MALFORMED_MESSAGE)
+		handleError(pbv2.Status_UNEXPECTED_MESSAGE)
 		return
 	}
 
