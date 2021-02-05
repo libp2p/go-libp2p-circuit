@@ -53,10 +53,14 @@ func New(h host.Host, opts ...Option) (*Relay, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	r := &Relay{
-		ctx:    ctx,
-		cancel: cancel,
-		host:   h,
-		// TODO
+		ctx:     ctx,
+		cancel:  cancel,
+		host:    h,
+		rc:      DefaultResources(),
+		acl:     nil,
+		rsvp:    make(map[peer.ID]time.Time),
+		refresh: make(map[peer.ID]time.Time),
+		conns:   make(map[peer.ID]int),
 	}
 
 	for _, opt := range opts {
@@ -67,19 +71,31 @@ func New(h host.Host, opts ...Option) (*Relay, error) {
 	}
 
 	h.SetStreamHandler(ProtoIDv2Hop, r.handleStream)
-
-	// TODO network notifee for handling peer disconns and removing from rsvp table
-	// TODO start background goroutine for cleaning up reservations
+	h.Network().Notify(
+		&network.NotifyBundle{
+			DisconnectedF: r.disconnected,
+		})
+	go r.background()
 
 	return r, nil
 }
 
 func (r *Relay) Close() error {
-	// TODO
+	select {
+	case <-r.ctx.Done():
+	default:
+		r.cancel()
+	}
 	return nil
 }
 
 func (r *Relay) handleStream(s network.Stream) {
+	select {
+	case <-r.ctx.Done():
+		s.Reset()
+		return
+	}
+
 	s.SetReadDeadline(time.Now().Add(StreamTimeout))
 
 	log.Infof("new relay stream from: %s", s.Conn().RemotePeer())
@@ -127,7 +143,7 @@ func (r *Relay) handleReserve(s network.Stream, msg *pbv2.HopMessage) {
 	refresh, exists := r.refresh[p]
 	if exists && refresh.After(now) {
 		// extend refresh time, peer is trying too fast
-		r.refresh[p] = refresh.Add(r.rc.ReservationTTL / 2)
+		r.refresh[p] = refresh.Add(r.rc.ReservationRefreshTTL)
 		r.mx.Unlock()
 		log.Debugf("refusing relay reservation for %s; refreshing too fast", p)
 		r.handleError(s, pbv2.Status_RESERVATION_REFUSED)
@@ -143,7 +159,7 @@ func (r *Relay) handleReserve(s network.Stream, msg *pbv2.HopMessage) {
 	}
 
 	r.rsvp[p] = now.Add(r.rc.ReservationTTL)
-	r.refresh[p] = now.Add(r.rc.ReservationTTL / 2)
+	r.refresh[p] = now.Add(r.rc.ReservationRefreshTTL)
 	r.host.ConnManager().TagPeer(p, "relay-reservation", ReservationTagWeight)
 	r.mx.Unlock()
 
@@ -407,4 +423,50 @@ func (r *Relay) makeLimitMsg(p peer.ID) *pbv2.Limit {
 		Duration: &duration,
 		Data:     &data,
 	}
+}
+
+func (r *Relay) background() {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			r.gc()
+		case <-r.ctx.Done():
+			return
+		}
+	}
+}
+
+func (r *Relay) gc() {
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	now := time.Now()
+
+	for p, expire := range r.rsvp {
+		if expire.Before(now) {
+			delete(r.rsvp, p)
+		}
+	}
+
+	for p, expire := range r.refresh {
+		_, rsvp := r.rsvp[p]
+		if !rsvp && expire.Before(now) {
+			delete(r.refresh, p)
+		}
+	}
+}
+
+func (r *Relay) disconnected(n network.Network, c network.Conn) {
+	p := c.RemotePeer()
+	if n.Connectedness(p) == network.Connected {
+		return
+	}
+
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	delete(r.rsvp, p)
 }
