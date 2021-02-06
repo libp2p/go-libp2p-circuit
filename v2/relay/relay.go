@@ -457,6 +457,12 @@ func (r *Relay) gc() {
 			delete(r.refresh, p)
 		}
 	}
+
+	for p, count := range r.conns {
+		if count == 0 {
+			delete(r.conns, p)
+		}
+	}
 }
 
 func (r *Relay) disconnected(n network.Network, c network.Conn) {
