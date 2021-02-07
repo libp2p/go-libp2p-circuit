@@ -94,6 +94,7 @@ func (r *Relay) handleStream(s network.Stream) {
 	case <-r.ctx.Done():
 		s.Reset()
 		return
+	default:
 	}
 
 	s.SetReadDeadline(time.Now().Add(StreamTimeout))
