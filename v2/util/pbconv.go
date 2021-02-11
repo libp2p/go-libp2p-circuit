@@ -68,8 +68,8 @@ func PeerToPeerInfoV2(p *pbv2.Peer) (peer.AddrInfo, error) {
 
 func PeerInfoToPeerV2(pi peer.AddrInfo) *pbv2.Peer {
 	var addrs [][]byte
-	for i, addr := range pi.Addrs {
-		addrs[i] = addr.Bytes()
+	for _, addr := range pi.Addrs {
+		addrs = append(addrs, addr.Bytes())
 	}
 
 	p := new(pbv2.Peer)
