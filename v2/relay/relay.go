@@ -49,8 +49,8 @@ type Relay struct {
 	conns   map[peer.ID]int
 }
 
-func New(h host.Host, opts ...Option) (*Relay, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+func New(ctx context.Context, h host.Host, opts ...Option) (*Relay, error) {
+	ctx, cancel := context.WithCancel(ctx)
 
 	r := &Relay{
 		ctx:     ctx,
@@ -289,6 +289,7 @@ func (r *Relay) handleConnect(s network.Stream, msg *pbv2.HopMessage) {
 	}
 
 	var response pbv2.HopMessage
+	response.Type = pbv2.HopMessage_STATUS.Enum()
 	response.Status = pbv2.Status_OK.Enum()
 	response.Limit = r.makeLimitMsg(dest.ID)
 
