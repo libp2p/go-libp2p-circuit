@@ -450,6 +450,7 @@ func (r *Relay) gc() {
 	for p, expire := range r.rsvp {
 		if expire.Before(now) {
 			delete(r.rsvp, p)
+			r.host.ConnManager().UntagPeer(p, "relay-reservation")
 		}
 	}
 
