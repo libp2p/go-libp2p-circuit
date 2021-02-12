@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -246,4 +247,107 @@ func TestRelayLimitTime(t *testing.T) {
 	if err != mux.ErrReset {
 		t.Fatalf("expected reset, but got %s", err)
 	}
+}
+
+func TestRelayLimitData(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	hosts, upgraders := getNetHosts(t, ctx, 3)
+	addTransport(t, ctx, hosts[0], upgraders[0])
+	addTransport(t, ctx, hosts[2], upgraders[2])
+
+	rch := make(chan int, 1)
+	hosts[0].SetStreamHandler("test", func(s network.Stream) {
+		defer s.Close()
+		defer close(rch)
+
+		buf := make([]byte, 4096)
+		n, err := s.Read(buf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rch <- n
+
+		n, err = s.Read(buf)
+		if err != mux.ErrReset {
+			t.Fatalf("expected reset but got %s", err)
+		}
+		rch <- n
+	})
+
+	rc := relay.DefaultResources()
+	rc.Limit.Duration = time.Second
+	rc.Limit.Data = 4096
+
+	r, err := relay.New(ctx, hosts[1], relay.WithResources(rc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+
+	connect(t, hosts[0], hosts[1])
+	connect(t, hosts[1], hosts[2])
+
+	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
+	_, err = client.Reserve(ctx, hosts[0], rinfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	raddr, err := ma.NewMultiaddr(fmt.Sprintf("/p2p/%s/p2p-circuit/p2p/%s", hosts[1].ID(), hosts[0].ID()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = hosts[2].Connect(ctx, peer.AddrInfo{ID: hosts[0].ID(), Addrs: []ma.Multiaddr{raddr}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	conns := hosts[2].Network().ConnsToPeer(hosts[0].ID())
+	if len(conns) != 1 {
+		t.Fatalf("expected 1 connection, but got %d", len(conns))
+	}
+	if !conns[0].Stat().Transient {
+		t.Fatal("expected transient connection")
+	}
+
+	s, err := hosts[2].NewStream(network.WithUseTransient(ctx), hosts[0].ID(), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	buf := make([]byte, 1024)
+	_, err = rand.Read(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	n, err := s.Write(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != len(buf) {
+		t.Fatalf("expected to write %d bytes but wrote %d", len(buf), n)
+	}
+
+	n = <-rch
+	if n != len(buf) {
+		t.Fatalf("expected to read %d bytes but read %d", len(buf), n)
+	}
+
+	buf = make([]byte, 4096)
+	_, err = rand.Read(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s.Write(buf)
+
+	n = <-rch
+	if n != 0 {
+		t.Fatalf("expected to read 0 bytes but read %d", n)
+	}
+
 }
