@@ -26,8 +26,7 @@ func (l *Listener) Accept() (manet.Conn, error) {
 				continue
 			}
 
-			// TODO: Pretty print.
-			log.Debugf("accepted relay connection: %q", evt.conn)
+			log.Debugf("accepted relay connection from %s through %s", evt.conn.remote.ID, evt.conn.RemoteMultiaddr())
 
 			evt.conn.tagHop()
 			return evt.conn, nil
