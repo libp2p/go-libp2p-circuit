@@ -34,8 +34,8 @@ func PeerToPeerInfoV1(p *pbv1.CircuitRelay_Peer) (peer.AddrInfo, error) {
 
 func PeerInfoToPeerV1(pi peer.AddrInfo) *pbv1.CircuitRelay_Peer {
 	var addrs [][]byte
-	for i, addr := range pi.Addrs {
-		addrs[i] = addr.Bytes()
+	for _, addr := range pi.Addrs {
+		addrs = append(addrs, addr.Bytes())
 	}
 
 	p := new(pbv1.CircuitRelay_Peer)

@@ -109,9 +109,6 @@ func TestBasicRelay(t *testing.T) {
 		nread := 0
 		for nread < len(buf) {
 			n, err := s.Read(buf[nread:])
-
-			fmt.Printf("got %d bytes", n)
-
 			nread += n
 			if err != nil {
 				if err == io.EOF {
