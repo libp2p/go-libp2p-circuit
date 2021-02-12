@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/libp2p/go-libp2p-circuit/v2/client"
 	"github.com/libp2p/go-libp2p-circuit/v2/relay"
 
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 
@@ -169,5 +171,79 @@ func TestBasicRelay(t *testing.T) {
 	got := <-rch
 	if !bytes.Equal(msg, got) {
 		t.Fatalf("Wrong echo; expected %s but got %s", string(msg), string(got))
+	}
+}
+
+func TestRelayLimitTime(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	hosts, upgraders := getNetHosts(t, ctx, 3)
+	addTransport(t, ctx, hosts[0], upgraders[0])
+	addTransport(t, ctx, hosts[2], upgraders[2])
+
+	rch := make(chan error, 1)
+	hosts[0].SetStreamHandler("test", func(s network.Stream) {
+		defer s.Close()
+		defer close(rch)
+
+		buf := make([]byte, 1024)
+		_, err := s.Read(buf)
+		rch <- err
+	})
+
+	rc := relay.DefaultResources()
+	rc.Limit.Duration = time.Second
+
+	r, err := relay.New(ctx, hosts[1], relay.WithResources(rc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+
+	connect(t, hosts[0], hosts[1])
+	connect(t, hosts[1], hosts[2])
+
+	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
+	_, err = client.Reserve(ctx, hosts[0], rinfo)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	raddr, err := ma.NewMultiaddr(fmt.Sprintf("/p2p/%s/p2p-circuit/p2p/%s", hosts[1].ID(), hosts[0].ID()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = hosts[2].Connect(ctx, peer.AddrInfo{ID: hosts[0].ID(), Addrs: []ma.Multiaddr{raddr}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	conns := hosts[2].Network().ConnsToPeer(hosts[0].ID())
+	if len(conns) != 1 {
+		t.Fatalf("expected 1 connection, but got %d", len(conns))
+	}
+	if !conns[0].Stat().Transient {
+		t.Fatal("expected transient connection")
+	}
+
+	s, err := hosts[2].NewStream(network.WithUseTransient(ctx), hosts[0].ID(), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	time.Sleep(2 * time.Second)
+	n, err := s.Write([]byte("should be closed"))
+	if n > 0 {
+		t.Fatalf("expected to write 0 bytes, wrote %d", n)
+	}
+	if err != mux.ErrReset {
+		t.Fatalf("expected reset, but got %s", err)
+	}
+
+	err = <-rch
+	if err != mux.ErrReset {
+		t.Fatalf("expected reset, but got %s", err)
 	}
 }
