@@ -6,7 +6,12 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
+// ACLFilter is an Access Control mechanism for relayed connect.
 type ACLFilter interface {
+	// AllowReserve returns true if a reservation from peer a given peer with a given multiaddr
+	// is allowed.
 	AllowReserve(p peer.ID, a ma.Multiaddr) bool
+	// AllowConnect returns true if a source peer, with a given multiaddr is allowed to connect
+	// to a destination peer.
 	AllowConnect(src peer.ID, srcAddr ma.Multiaddr, dest peer.ID) bool
 }

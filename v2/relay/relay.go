@@ -35,6 +35,7 @@ const (
 
 var log = logging.Logger("relay")
 
+// Relay is the (limited) relay service object.
 type Relay struct {
 	ctx    context.Context
 	cancel func()
@@ -49,6 +50,7 @@ type Relay struct {
 	conns   map[peer.ID]int
 }
 
+// New constructs a new limited relay that can provide relay services in the given host.
 func New(ctx context.Context, h host.Host, opts ...Option) (*Relay, error) {
 	ctx, cancel := context.WithCancel(ctx)
 

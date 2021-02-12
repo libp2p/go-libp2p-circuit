@@ -13,15 +13,26 @@ import (
 	"github.com/libp2p/go-libp2p-core/peerstore"
 )
 
+// Reservation is a struct carrying information about a relay/v2 slot reservation.
 type Reservation struct {
+	// Expiration is the expiration time of the reservation
 	Expiration time.Time
-	Relay      peer.AddrInfo
+	// Relay is the public addresses of the relay, which can be used for constructing
+	// and advertising relay specific addresses.
+	Relay peer.AddrInfo
 
+	// LimitDuration is the time limit for which the relay will keep a relayed connection
+	// open. If 0, there is no limit.
 	LimitDuration time.Duration
-	LimitData     int64
+	// LimitData is the number of bytes that the relay will relay in each direction before
+	// resetting a relayed connection.
+	LimitData int64
+
+	// TODO reservation voucher
 }
 
-// Reserve reserves a slot in a relay and returns the reservation information
+// Reserve reserves a slot in a relay and returns the reservation information.
+// Clients must reserve slots in order for the relay to relay connections to them.
 func Reserve(ctx context.Context, h host.Host, ai peer.AddrInfo) (*Reservation, error) {
 	if len(ai.Addrs) > 0 {
 		h.Peerstore().AddAddrs(ai.ID, ai.Addrs, peerstore.TempAddrTTL)
