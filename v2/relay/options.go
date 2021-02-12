@@ -17,3 +17,11 @@ func WithLimit(limit *RelayLimit) Option {
 		return nil
 	}
 }
+
+// WithACL is a Relay option that supplies an ACLFilter for access control.
+func WithACL(acl ACLFilter) Option {
+	return func(r *Relay) error {
+		r.acl = acl
+		return nil
+	}
+}
