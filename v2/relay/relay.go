@@ -15,9 +15,9 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 
-	pool "github.com/libp2p/go-buffer-pool"
-
 	logging "github.com/ipfs/go-log"
+	pool "github.com/libp2p/go-buffer-pool"
+	manet "github.com/multiformats/go-multiaddr/net"
 )
 
 const (
@@ -407,7 +407,12 @@ func (r *Relay) makeReservationMsg(p peer.ID) *pbv2.Reservation {
 
 	ttl := int32(r.rc.ReservationTTL / time.Second)
 	// TODO cache this
-	ai := peer.AddrInfo{r.host.ID(), r.host.Addrs()}
+	ai := peer.AddrInfo{ID: r.host.ID()}
+	for _, addr := range r.host.Addrs() {
+		if manet.IsPublicAddr(addr) {
+			ai.Addrs = append(ai.Addrs, addr)
+		}
+	}
 
 	return &pbv2.Reservation{
 		Ttl:   &ttl,
