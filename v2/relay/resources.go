@@ -47,6 +47,6 @@ func DefaultResources() Resources {
 func DefaultLimit() *RelayLimit {
 	return &RelayLimit{
 		Duration: time.Minute,
-		Data:     65536,
+		Data:     1 << 17, // 128K
 	}
 }
