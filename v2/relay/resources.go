@@ -12,11 +12,6 @@ type Resources struct {
 	// ReservationTTL is the duration of a new (or refreshed reservation).
 	// Defaults to 1hr.
 	ReservationTTL time.Duration
-	// ReservationRefreshTTL is the time that must have ellapsed since the last reservation
-	// in order to accept a new reservation. If a client attempts to refresh a reservation
-	// sooner than that, then the refresh will be refused.
-	// Defaults to 15min.
-	ReservationRefreshTTL time.Duration
 
 	// MaxReservations is the maximum number of active relay slots; defaults to 128.
 	MaxReservations int
@@ -40,8 +35,7 @@ func DefaultResources() Resources {
 	return Resources{
 		Limit: DefaultLimit(),
 
-		ReservationTTL:        time.Hour,
-		ReservationRefreshTTL: 15 * time.Minute,
+		ReservationTTL: time.Hour,
 
 		MaxReservations: 128,
 		MaxCircuits:     16,

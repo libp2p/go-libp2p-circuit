@@ -44,10 +44,9 @@ type Relay struct {
 	rc   Resources
 	acl  ACLFilter
 
-	mx      sync.Mutex
-	rsvp    map[peer.ID]time.Time
-	refresh map[peer.ID]time.Time
-	conns   map[peer.ID]int
+	mx    sync.Mutex
+	rsvp  map[peer.ID]time.Time
+	conns map[peer.ID]int
 }
 
 // New constructs a new limited relay that can provide relay services in the given host.
@@ -55,14 +54,13 @@ func New(ctx context.Context, h host.Host, opts ...Option) (*Relay, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	r := &Relay{
-		ctx:     ctx,
-		cancel:  cancel,
-		host:    h,
-		rc:      DefaultResources(),
-		acl:     nil,
-		rsvp:    make(map[peer.ID]time.Time),
-		refresh: make(map[peer.ID]time.Time),
-		conns:   make(map[peer.ID]int),
+		ctx:    ctx,
+		cancel: cancel,
+		host:   h,
+		rc:     DefaultResources(),
+		acl:    nil,
+		rsvp:   make(map[peer.ID]time.Time),
+		conns:  make(map[peer.ID]int),
 	}
 
 	for _, opt := range opts {
@@ -143,18 +141,9 @@ func (r *Relay) handleReserve(s network.Stream, msg *pbv2.HopMessage) {
 	r.mx.Lock()
 	now := time.Now()
 
-	refresh, exists := r.refresh[p]
-	if exists && refresh.After(now) {
-		// extend refresh time, peer is trying too fast
-		r.refresh[p] = refresh.Add(r.rc.ReservationRefreshTTL)
-		r.mx.Unlock()
-		log.Debugf("refusing relay reservation for %s; refreshing too fast", p)
-		r.handleError(s, pbv2.Status_RESERVATION_REFUSED)
-		return
-	}
-
+	_, exists := r.rsvp[p]
 	active := len(r.rsvp)
-	if active >= r.rc.MaxReservations {
+	if !exists && active >= r.rc.MaxReservations {
 		r.mx.Unlock()
 		log.Debugf("refusing relay reservation for %s; too many reservations", p)
 		r.handleError(s, pbv2.Status_RESOURCE_LIMIT_EXCEEDED)
@@ -162,7 +151,6 @@ func (r *Relay) handleReserve(s network.Stream, msg *pbv2.HopMessage) {
 	}
 
 	r.rsvp[p] = now.Add(r.rc.ReservationTTL)
-	r.refresh[p] = now.Add(r.rc.ReservationRefreshTTL)
 	r.host.ConnManager().TagPeer(p, "relay-reservation", ReservationTagWeight)
 	r.mx.Unlock()
 
@@ -458,13 +446,6 @@ func (r *Relay) gc() {
 		if expire.Before(now) {
 			delete(r.rsvp, p)
 			r.host.ConnManager().UntagPeer(p, "relay-reservation")
-		}
-	}
-
-	for p, expire := range r.refresh {
-		_, rsvp := r.rsvp[p]
-		if !rsvp && expire.Before(now) {
-			delete(r.refresh, p)
 		}
 	}
 
