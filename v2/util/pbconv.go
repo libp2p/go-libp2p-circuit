@@ -22,6 +22,10 @@ func PeerToPeerInfoV1(p *pbv1.CircuitRelay_Peer) (peer.AddrInfo, error) {
 	}
 
 	var addrs []ma.Multiaddr
+	if len(p.Addrs) > 0 {
+		addrs = make([]ma.Multiaddr, len(p.Addrs))
+	}
+
 	for _, addrBytes := range p.Addrs {
 		a, err := ma.NewMultiaddrBytes(addrBytes)
 		if err == nil {
@@ -34,6 +38,10 @@ func PeerToPeerInfoV1(p *pbv1.CircuitRelay_Peer) (peer.AddrInfo, error) {
 
 func PeerInfoToPeerV1(pi peer.AddrInfo) *pbv1.CircuitRelay_Peer {
 	var addrs [][]byte
+	if len(pi.Addrs) > 0 {
+		addrs = make([][]byte, len(pi.Addrs))
+	}
+
 	for _, addr := range pi.Addrs {
 		addrs = append(addrs, addr.Bytes())
 	}
@@ -56,6 +64,10 @@ func PeerToPeerInfoV2(p *pbv2.Peer) (peer.AddrInfo, error) {
 	}
 
 	var addrs []ma.Multiaddr
+	if len(p.Addrs) > 0 {
+		addrs = make([]ma.Multiaddr, len(p.Addrs))
+	}
+
 	for _, addrBytes := range p.Addrs {
 		a, err := ma.NewMultiaddrBytes(addrBytes)
 		if err == nil {
@@ -68,6 +80,11 @@ func PeerToPeerInfoV2(p *pbv2.Peer) (peer.AddrInfo, error) {
 
 func PeerInfoToPeerV2(pi peer.AddrInfo) *pbv2.Peer {
 	var addrs [][]byte
+
+	if len(pi.Addrs) > 0 {
+		addrs = make([][]byte, len(pi.Addrs))
+	}
+
 	for _, addr := range pi.Addrs {
 		addrs = append(addrs, addr.Bytes())
 	}
