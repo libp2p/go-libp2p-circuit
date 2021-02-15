@@ -13,6 +13,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/peerstore"
 )
 
+var ReserveTimeout = time.Minute
+
 // Reservation is a struct carrying information about a relay/v2 slot reservation.
 type Reservation struct {
 	// Expiration is the expiration time of the reservation
@@ -50,6 +52,8 @@ func Reserve(ctx context.Context, h host.Host, ai peer.AddrInfo) (*Reservation, 
 
 	var msg pbv2.HopMessage
 	msg.Type = pbv2.HopMessage_RESERVE.Enum()
+
+	s.SetDeadline(time.Now().Add(ReserveTimeout))
 
 	if err := wr.WriteMsg(&msg); err != nil {
 		s.Reset()
