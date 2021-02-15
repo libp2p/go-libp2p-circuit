@@ -26,7 +26,7 @@ type RelayLimit struct {
 	// Duration is the time limit before resetting a relayed connection; defaults to 1min.
 	Duration time.Duration
 	// Data is the limit of data relayed (on each direction) before resetting the connection.
-	// Defaults to 64KB
+	// Defaults to 128KB
 	Data int64
 }
 
