@@ -50,8 +50,8 @@ type Relay struct {
 }
 
 // New constructs a new limited relay that can provide relay services in the given host.
-func New(ctx context.Context, h host.Host, opts ...Option) (*Relay, error) {
-	ctx, cancel := context.WithCancel(ctx)
+func New(h host.Host, opts ...Option) (*Relay, error) {
+	ctx, cancel := context.WithCancel(context.Background())
 
 	r := &Relay{
 		ctx:    ctx,
@@ -84,19 +84,13 @@ func (r *Relay) Close() error {
 	select {
 	case <-r.ctx.Done():
 	default:
+		r.host.RemoveStreamHandler(ProtoIDv2Hop)
 		r.cancel()
 	}
 	return nil
 }
 
 func (r *Relay) handleStream(s network.Stream) {
-	select {
-	case <-r.ctx.Done():
-		s.Reset()
-		return
-	default:
-	}
-
 	s.SetReadDeadline(time.Now().Add(StreamTimeout))
 
 	log.Infof("new relay stream from: %s", s.Conn().RemotePeer())
