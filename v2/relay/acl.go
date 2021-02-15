@@ -8,7 +8,7 @@ import (
 
 // ACLFilter is an Access Control mechanism for relayed connect.
 type ACLFilter interface {
-	// AllowReserve returns true if a reservation from peer the given peer and the given multiaddr
+	// AllowReserve returns true if a reservation from a peer with the given peer ID and multiaddr
 	// is allowed.
 	AllowReserve(p peer.ID, a ma.Multiaddr) bool
 	// AllowConnect returns true if a source peer, with a given multiaddr is allowed to connect
