@@ -121,7 +121,7 @@ func TestBasicRelay(t *testing.T) {
 		rch <- buf[:nread]
 	})
 
-	r, err := relay.New(ctx, hosts[1])
+	r, err := relay.New(hosts[1])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestRelayLimitTime(t *testing.T) {
 	rc := relay.DefaultResources()
 	rc.Limit.Duration = time.Second
 
-	r, err := relay.New(ctx, hosts[1], relay.WithResources(rc))
+	r, err := relay.New(hosts[1], relay.WithResources(rc))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +277,7 @@ func TestRelayLimitData(t *testing.T) {
 	rc.Limit.Duration = time.Second
 	rc.Limit.Data = 4096
 
-	r, err := relay.New(ctx, hosts[1], relay.WithResources(rc))
+	r, err := relay.New(hosts[1], relay.WithResources(rc))
 	if err != nil {
 		t.Fatal(err)
 	}
