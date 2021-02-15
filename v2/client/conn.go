@@ -114,7 +114,11 @@ func (c *Conn) Stat() network.Stat {
 	return c.stat
 }
 
-// conn manager hop tagging
+// tagHop tags the underlying relay connection so that it can be (somewhat) protected from the
+// connection manager as it is an important connection that proxies other connections.
+// This is handled here so that the user code doesnt need to bother with this and avoid
+// clown shoes situations where a high value peer connection is behind a relayed connection and it is
+// implicitly because the connection manager closed the underlying relay connection.
 func (c *Conn) tagHop() {
 	c.client.mx.Lock()
 	defer c.client.mx.Unlock()
@@ -126,6 +130,8 @@ func (c *Conn) tagHop() {
 	}
 }
 
+// untagHop removes the relay-hop-stream tag if necessary; it is invoked when a relayed connection
+// is closed.
 func (c *Conn) untagHop() {
 	c.client.mx.Lock()
 	defer c.client.mx.Unlock()

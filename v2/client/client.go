@@ -19,6 +19,14 @@ const (
 
 var log = logging.Logger("p2p-circuit")
 
+// Client implements the client-side of the p2p-circuit/v2 protocol:
+// - it implements dialing through v2 relays
+// - it listens for incoming connections through v2 relays.
+//
+// For backwards compatibility with v1 relays and older nodes, the client will
+// also accept relay connections through v1 relays and fallback dial peers using p2p-circuit/v1.
+// This allows us to use the v2 code as drop in replacement for v1 in a host without breaking
+// existing code and interoperability with older nodes.
 type Client struct {
 	ctx      context.Context
 	host     host.Host

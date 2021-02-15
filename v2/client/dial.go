@@ -18,6 +18,8 @@ import (
 
 const maxMessageSize = 4096
 
+var DialTimeout = time.Minute
+
 func (c *Client) dial(ctx context.Context, a ma.Multiaddr, p peer.ID) (*Conn, error) {
 	// split /a/p2p-circuit/b into (/a, /p2p-circuit/b)
 	relayaddr, destaddr := ma.SplitFunc(a, func(c ma.Component) bool {
@@ -85,6 +87,8 @@ func (c *Client) connectV2(s network.Stream, dest peer.AddrInfo) (*Conn, error) 
 	msg.Type = pbv2.HopMessage_CONNECT.Enum()
 	msg.Peer = util.PeerInfoToPeerV2(dest)
 
+	s.SetDeadline(time.Now().Add(DialTimeout))
+
 	err := wr.WriteMsg(&msg)
 	if err != nil {
 		s.Reset()
@@ -99,6 +103,8 @@ func (c *Client) connectV2(s network.Stream, dest peer.AddrInfo) (*Conn, error) 
 		return nil, err
 	}
 
+	s.SetDeadline(time.Time{})
+
 	if msg.GetType() != pbv2.HopMessage_STATUS {
 		s.Reset()
 		return nil, fmt.Errorf("unexpected relay response; not a status message (%d)", msg.GetType())
@@ -110,6 +116,8 @@ func (c *Client) connectV2(s network.Stream, dest peer.AddrInfo) (*Conn, error) 
 		return nil, fmt.Errorf("error opening relay circuit: %s (%d)", pbv2.Status_name[int32(status)], status)
 	}
 
+	// check for a limit provided by the relay; if the limit is not nil, then this is a limited
+	// relay connection and we mark the connection as transient.
 	var stat network.Stat
 	if limit := msg.GetLimit(); limit != nil {
 		stat.Transient = true
