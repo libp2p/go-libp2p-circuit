@@ -44,6 +44,7 @@ type Relay struct {
 	host host.Host
 	rc   Resources
 	acl  ACLFilter
+	ipcs *IPConstraints
 
 	mx    sync.Mutex
 	rsvp  map[peer.ID]time.Time
@@ -70,6 +71,8 @@ func New(h host.Host, opts ...Option) (*Relay, error) {
 			return nil, fmt.Errorf("error applying relay option: %w", err)
 		}
 	}
+
+	r.ipcs = NewIPConstraints(r.rc)
 
 	h.SetStreamHandler(ProtoIDv2Hop, r.handleStream)
 	h.Network().Notify(
@@ -140,12 +143,20 @@ func (r *Relay) handleReserve(s network.Stream, msg *pbv2.HopMessage) {
 	now := time.Now()
 
 	_, exists := r.rsvp[p]
-	active := len(r.rsvp)
-	if !exists && active >= r.rc.MaxReservations {
-		r.mx.Unlock()
-		log.Debugf("refusing relay reservation for %s; too many reservations", p)
-		r.handleError(s, pbv2.Status_RESOURCE_LIMIT_EXCEEDED)
-		return
+	if !exists {
+		active := len(r.rsvp)
+		if active >= r.rc.MaxReservations {
+			r.mx.Unlock()
+			log.Debugf("refusing relay reservation for %s; too many reservations", p)
+			r.handleError(s, pbv2.Status_RESERVATION_REFUSED)
+			return
+		}
+		if err := r.ipcs.AddReservation(p, a); err != nil {
+			r.mx.Unlock()
+			log.Debugf("refusing relay reservation for %s; IP constraint violation: %s", p, err)
+			r.handleError(s, pbv2.Status_RESERVATION_REFUSED)
+			return
+		}
 	}
 
 	r.rsvp[p] = now.Add(r.rc.ReservationTTL)
@@ -160,6 +171,7 @@ func (r *Relay) handleReserve(s network.Stream, msg *pbv2.HopMessage) {
 		log.Debugf("error writing reservation response; retracting reservation for %s", p)
 		r.mx.Lock()
 		delete(r.rsvp, p)
+		r.ipcs.RemoveReservation(p)
 		r.host.ConnManager().UntagPeer(p, "relay-reservation")
 		r.mx.Unlock()
 	}
@@ -443,6 +455,7 @@ func (r *Relay) gc() {
 	for p, expire := range r.rsvp {
 		if expire.Before(now) {
 			delete(r.rsvp, p)
+			r.ipcs.RemoveReservation(p)
 			r.host.ConnManager().UntagPeer(p, "relay-reservation")
 		}
 	}
@@ -464,4 +477,5 @@ func (r *Relay) disconnected(n network.Network, c network.Conn) {
 	defer r.mx.Unlock()
 
 	delete(r.rsvp, p)
+	r.ipcs.RemoveReservation(p)
 }
