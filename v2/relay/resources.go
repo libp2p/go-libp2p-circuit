@@ -19,6 +19,13 @@ type Resources struct {
 	MaxCircuits int
 	// BufferSize is the size of the relayed connection buffers; defaults to 2048.
 	BufferSize int
+
+	// MaxReservationsPerIP is the maximum number of reservations originating from the same
+	// IP address; default is 4.
+	MaxReservationsPerIP int
+	// MaxReservationsPerASN is the maximum number of reservations origination from the same
+	// ASN; default is 32
+	MaxReservationsPerASN int
 }
 
 // RelayLimit are the per relayed connection resource limits.
@@ -40,6 +47,9 @@ func DefaultResources() Resources {
 		MaxReservations: 128,
 		MaxCircuits:     16,
 		BufferSize:      2048,
+
+		MaxReservationsPerIP:  4,
+		MaxReservationsPerASN: 32,
 	}
 }
 
