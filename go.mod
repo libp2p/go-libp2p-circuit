@@ -6,6 +6,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/ipfs/go-log v1.0.4
 	github.com/libp2p/go-buffer-pool v0.0.2
+	github.com/libp2p/go-libp2p-asn-util v0.0.0-20210211060025-0db24c10d3bd
 	github.com/libp2p/go-libp2p-blankhost v0.2.0
 	github.com/libp2p/go-libp2p-core v0.8.1-0.20210204112723-43260f46b7ee
 	github.com/libp2p/go-libp2p-metrics v0.1.0
