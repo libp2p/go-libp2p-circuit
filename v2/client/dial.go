@@ -140,6 +140,8 @@ func (c *Client) connectV1(s network.Stream, dest peer.AddrInfo) (*Conn, error) 
 	msg.SrcPeer = util.PeerInfoToPeerV1(c.host.Peerstore().PeerInfo(c.host.ID()))
 	msg.DstPeer = util.PeerInfoToPeerV1(dest)
 
+	s.SetDeadline(time.Now().Add(DialTimeout))
+
 	err := wr.WriteMsg(&msg)
 	if err != nil {
 		s.Reset()
@@ -153,6 +155,8 @@ func (c *Client) connectV1(s network.Stream, dest peer.AddrInfo) (*Conn, error) 
 		s.Reset()
 		return nil, err
 	}
+
+	s.SetDeadline(time.Time{})
 
 	if msg.GetType() != pbv1.CircuitRelay_STATUS {
 		s.Reset()
