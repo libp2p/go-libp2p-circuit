@@ -85,6 +85,11 @@ func (r *Relay) Close() error {
 	if atomic.CompareAndSwapUint32(&r.closed, 0, 1) {
 		r.host.RemoveStreamHandler(ProtoIDv2Hop)
 		r.cancel()
+		r.mx.Lock()
+		for p := range r.rsvp {
+			r.host.ConnManager().UntagPeer(p, "relay-reservation")
+		}
+		r.mx.Unlock()
 	}
 	return nil
 }
