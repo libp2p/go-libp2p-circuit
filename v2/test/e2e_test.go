@@ -154,7 +154,7 @@ func TestBasicRelay(t *testing.T) {
 		t.Fatal("expected transient connection")
 	}
 
-	s, err := hosts[2].NewStream(network.WithUseTransient(ctx), hosts[0].ID(), "test")
+	s, err := hosts[2].NewStream(network.WithUseTransient(ctx, "test"), hosts[0].ID(), "test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +226,7 @@ func TestRelayLimitTime(t *testing.T) {
 		t.Fatal("expected transient connection")
 	}
 
-	s, err := hosts[2].NewStream(network.WithUseTransient(ctx), hosts[0].ID(), "test")
+	s, err := hosts[2].NewStream(network.WithUseTransient(ctx, "test"), hosts[0].ID(), "test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,7 +310,7 @@ func TestRelayLimitData(t *testing.T) {
 		t.Fatal("expected transient connection")
 	}
 
-	s, err := hosts[2].NewStream(network.WithUseTransient(ctx), hosts[0].ID(), "test")
+	s, err := hosts[2].NewStream(network.WithUseTransient(ctx, "test"), hosts[0].ID(), "test")
 	if err != nil {
 		t.Fatal(err)
 	}
