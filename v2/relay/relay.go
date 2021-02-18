@@ -414,10 +414,11 @@ func (r *Relay) makeReservationMsg(p peer.ID, expire time.Time) *pbv2.Reservatio
 			continue
 		}
 
-		// TODO sign reservation vouchers for p
 		raddr := addr.Encapsulate(r.relayAddr)
 		addrBytes = append(addrBytes, raddr.Bytes())
 	}
+
+	// TODO sign reservation voucher for p
 
 	return &pbv2.Reservation{
 		Expire: &expireUnix,
