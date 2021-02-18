@@ -30,7 +30,7 @@ type Resources struct {
 
 // RelayLimit are the per relayed connection resource limits.
 type RelayLimit struct {
-	// Duration is the time limit before resetting a relayed connection; defaults to 1min.
+	// Duration is the time limit before resetting a relayed connection; defaults to 2min.
 	Duration time.Duration
 	// Data is the limit of data relayed (on each direction) before resetting the connection.
 	// Defaults to 128KB
@@ -56,7 +56,7 @@ func DefaultResources() Resources {
 // DefaultLimit returns a RelayLimit object with the defaults filled in.
 func DefaultLimit() *RelayLimit {
 	return &RelayLimit{
-		Duration: time.Minute,
+		Duration: 2 * time.Minute,
 		Data:     1 << 17, // 128K
 	}
 }
