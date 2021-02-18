@@ -38,10 +38,8 @@ message Peer {
 }
 
 message Reservation {
-  optional int32 ttl = 1; // seconds
-  optional Peer relay = 2;
-
-  // TODO: voucher
+  optional int64 expire = 1; // Unix expiration time (UTC)
+  repeated bytes addrs = 2; // vouched relay addrs for reserving peer
 }
 
 message Limit {
