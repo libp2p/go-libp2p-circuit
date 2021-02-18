@@ -17,6 +17,7 @@ import (
 
 	logging "github.com/ipfs/go-log"
 	pool "github.com/libp2p/go-buffer-pool"
+	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 )
 
@@ -49,6 +50,8 @@ type Relay struct {
 	mx    sync.Mutex
 	rsvp  map[peer.ID]time.Time
 	conns map[peer.ID]int
+
+	relayAddr ma.Multiaddr
 }
 
 // New constructs a new limited relay that can provide relay services in the given host.
@@ -73,6 +76,7 @@ func New(h host.Host, opts ...Option) (*Relay, error) {
 	}
 
 	r.ipcs = NewIPConstraints(r.rc)
+	r.relayAddr = ma.StringCast(fmt.Sprintf("/p2p/%s/p2p-circuit", h.ID()))
 
 	h.SetStreamHandler(ProtoIDv2Hop, r.handleStream)
 	h.Network().Notify(
@@ -159,13 +163,14 @@ func (r *Relay) handleReserve(s network.Stream, msg *pbv2.HopMessage) {
 		}
 	}
 
-	r.rsvp[p] = now.Add(r.rc.ReservationTTL)
+	expire := now.Add(r.rc.ReservationTTL)
+	r.rsvp[p] = expire
 	r.host.ConnManager().TagPeer(p, "relay-reservation", ReservationTagWeight)
 	r.mx.Unlock()
 
 	log.Debugf("reserving relay slot for %s", p)
 
-	err := r.writeResponse(s, pbv2.Status_OK, r.makeReservationMsg(p), r.makeLimitMsg(p))
+	err := r.writeResponse(s, pbv2.Status_OK, r.makeReservationMsg(p, expire), r.makeLimitMsg(p))
 	if err != nil {
 		s.Reset()
 		log.Debugf("error writing reservation response; retracting reservation for %s", p)
@@ -400,21 +405,23 @@ func (r *Relay) writeResponse(s network.Stream, status pbv2.Status, rsvp *pbv2.R
 	return wr.WriteMsg(&msg)
 }
 
-func (r *Relay) makeReservationMsg(p peer.ID) *pbv2.Reservation {
-	// TODO signed reservation vouchers
+func (r *Relay) makeReservationMsg(p peer.ID, expire time.Time) *pbv2.Reservation {
+	expireUnix := expire.Unix()
 
-	ttl := int32(r.rc.ReservationTTL / time.Second)
-	// TODO cache this
-	ai := peer.AddrInfo{ID: r.host.ID()}
+	var addrBytes [][]byte
 	for _, addr := range r.host.Addrs() {
-		if manet.IsPublicAddr(addr) {
-			ai.Addrs = append(ai.Addrs, addr)
+		if !manet.IsPublicAddr(addr) {
+			continue
 		}
+
+		// TODO sign reservation vouchers for p
+		raddr := addr.Encapsulate(r.relayAddr)
+		addrBytes = append(addrBytes, raddr.Bytes())
 	}
 
 	return &pbv2.Reservation{
-		Ttl:   &ttl,
-		Relay: util.PeerInfoToPeerV2(ai),
+		Expire: &expireUnix,
+		Addrs:  addrBytes,
 	}
 }
 

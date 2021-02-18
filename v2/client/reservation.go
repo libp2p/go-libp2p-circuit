@@ -11,6 +11,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
+
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 var ReserveTimeout = time.Minute
@@ -19,9 +21,9 @@ var ReserveTimeout = time.Minute
 type Reservation struct {
 	// Expiration is the expiration time of the reservation
 	Expiration time.Time
-	// Relay is the public addresses of the relay, which can be used for constructing
-	// and advertising relay specific addresses.
-	Relay peer.AddrInfo
+	// Addrs contains the vouched public addresses of the reserving peer, which can be
+	// announced to the network
+	Addrs []ma.Multiaddr
 
 	// LimitDuration is the time limit for which the relay will keep a relayed connection
 	// open. If 0, there is no limit.
@@ -81,13 +83,16 @@ func Reserve(ctx context.Context, h host.Host, ai peer.AddrInfo) (*Reservation, 
 	}
 
 	result := &Reservation{}
-	result.Expiration = time.Now().Add(time.Duration(rsvp.GetTtl()) * time.Second)
+	result.Expiration = time.Unix(rsvp.GetExpire(), 0)
 
-	rinfo, err := util.PeerToPeerInfoV2(rsvp.GetRelay())
-	if err != nil {
-		return nil, fmt.Errorf("missing relay info")
+	for _, ab := range rsvp.GetAddrs() {
+		a, err := ma.NewMultiaddrBytes(ab)
+		if err != nil {
+			log.Warnf("ignoring unparsable relay address: %s", err)
+			continue
+		}
+		result.Addrs = append(result.Addrs, a)
 	}
-	result.Relay = rinfo
 
 	limit := msg.GetLimit()
 	if limit != nil {
