@@ -6,6 +6,7 @@ import (
 	"time"
 
 	pbv2 "github.com/libp2p/go-libp2p-circuit/v2/pb"
+	"github.com/libp2p/go-libp2p-circuit/v2/proto"
 	"github.com/libp2p/go-libp2p-circuit/v2/util"
 
 	"github.com/libp2p/go-libp2p-core/host"
@@ -42,7 +43,7 @@ func Reserve(ctx context.Context, h host.Host, ai peer.AddrInfo) (*Reservation, 
 		h.Peerstore().AddAddrs(ai.ID, ai.Addrs, peerstore.TempAddrTTL)
 	}
 
-	s, err := h.NewStream(ctx, ai.ID, ProtoIDv2Hop)
+	s, err := h.NewStream(ctx, ai.ID, proto.ProtoIDv2Hop)
 	if err != nil {
 		return nil, err
 	}
