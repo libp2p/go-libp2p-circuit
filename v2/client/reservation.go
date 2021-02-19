@@ -33,7 +33,8 @@ type Reservation struct {
 	// resetting a relayed connection.
 	LimitData int64
 
-	// TODO reservation voucher
+	// Voucher is a signed reservation voucher provided by the relay
+	Voucher *proto.ReservationVoucher
 }
 
 // Reserve reserves a slot in a relay and returns the reservation information.
@@ -93,6 +94,23 @@ func Reserve(ctx context.Context, h host.Host, ai peer.AddrInfo) (*Reservation, 
 			continue
 		}
 		result.Addrs = append(result.Addrs, a)
+	}
+
+	voucherBytes := rsvp.GetVoucher()
+	if voucherBytes != nil {
+		voucher := new(proto.ReservationVoucher)
+
+		err := voucher.Unmarshal(voucherBytes)
+		if err != nil {
+			return nil, fmt.Errorf("error unmarshalling reservation voucher from relay: %w", err)
+		}
+
+		err = voucher.Verify(h.Peerstore().PubKey(ai.ID))
+		if err != nil {
+			return nil, fmt.Errorf("error verifying voucher from relay: %w", err)
+		}
+
+		result.Voucher = voucher
 	}
 
 	limit := msg.GetLimit()

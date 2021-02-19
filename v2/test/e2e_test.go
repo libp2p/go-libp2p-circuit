@@ -131,9 +131,13 @@ func TestBasicRelay(t *testing.T) {
 	connect(t, hosts[1], hosts[2])
 
 	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
-	_, err = client.Reserve(ctx, hosts[0], rinfo)
+	rsvp, err := client.Reserve(ctx, hosts[0], rinfo)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if rsvp.Voucher == nil {
+		t.Fatal("no reservation voucher")
 	}
 
 	raddr, err := ma.NewMultiaddr(fmt.Sprintf("/p2p/%s/p2p-circuit/p2p/%s", hosts[1].ID(), hosts[0].ID()))
