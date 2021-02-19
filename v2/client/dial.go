@@ -7,6 +7,7 @@ import (
 
 	pbv1 "github.com/libp2p/go-libp2p-circuit/pb"
 	pbv2 "github.com/libp2p/go-libp2p-circuit/v2/pb"
+	"github.com/libp2p/go-libp2p-circuit/v2/proto"
 	"github.com/libp2p/go-libp2p-circuit/v2/util"
 
 	"github.com/libp2p/go-libp2p-core/network"
@@ -59,16 +60,16 @@ func (c *Client) dialPeer(ctx context.Context, relay, dest peer.AddrInfo) (*Conn
 		c.host.Peerstore().AddAddrs(relay.ID, relay.Addrs, peerstore.TempAddrTTL)
 	}
 
-	s, err := c.host.NewStream(ctx, relay.ID, ProtoIDv2Hop, ProtoIDv1)
+	s, err := c.host.NewStream(ctx, relay.ID, proto.ProtoIDv2Hop, proto.ProtoIDv1)
 	if err != nil {
 		return nil, fmt.Errorf("error opening hop stream to relay: %w", err)
 	}
 
 	switch s.Protocol() {
-	case ProtoIDv2Hop:
+	case proto.ProtoIDv2Hop:
 		return c.connectV2(s, dest)
 
-	case ProtoIDv1:
+	case proto.ProtoIDv1:
 		return c.connectV1(s, dest)
 
 	default:

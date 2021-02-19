@@ -4,17 +4,13 @@ import (
 	"context"
 	"sync"
 
+	"github.com/libp2p/go-libp2p-circuit/v2/proto"
+
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	logging "github.com/ipfs/go-log"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
-)
-
-const (
-	ProtoIDv1     = "/libp2p/circuit/relay/0.1.0"
-	ProtoIDv2Hop  = "/libp2p/circuit/relay/0.2.0/hop"
-	ProtoIDv2Stop = "/libp2p/circuit/relay/0.2.0/stop"
 )
 
 var log = logging.Logger("p2p-circuit")
@@ -57,6 +53,6 @@ func New(ctx context.Context, h host.Host, upgrader *tptu.Upgrader) (*Client, er
 
 // Start registers the circuit (client) protocol stream handlers
 func (c *Client) Start() {
-	c.host.SetStreamHandler(ProtoIDv1, c.handleStreamV1)
-	c.host.SetStreamHandler(ProtoIDv2Stop, c.handleStreamV2)
+	c.host.SetStreamHandler(proto.ProtoIDv1, c.handleStreamV1)
+	c.host.SetStreamHandler(proto.ProtoIDv2Stop, c.handleStreamV2)
 }

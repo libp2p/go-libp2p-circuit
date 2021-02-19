@@ -9,6 +9,7 @@ import (
 	"time"
 
 	pbv2 "github.com/libp2p/go-libp2p-circuit/v2/pb"
+	"github.com/libp2p/go-libp2p-circuit/v2/proto"
 	"github.com/libp2p/go-libp2p-circuit/v2/util"
 
 	"github.com/libp2p/go-libp2p-core/host"
@@ -22,9 +23,6 @@ import (
 )
 
 const (
-	ProtoIDv2Hop  = "/libp2p/circuit/relay/0.2.0/hop"
-	ProtoIDv2Stop = "/libp2p/circuit/relay/0.2.0/stop"
-
 	ReservationTagWeight = 10
 
 	StreamTimeout    = time.Minute
@@ -78,7 +76,7 @@ func New(h host.Host, opts ...Option) (*Relay, error) {
 	r.ipcs = NewIPConstraints(r.rc)
 	r.relayAddr = ma.StringCast(fmt.Sprintf("/p2p/%s/p2p-circuit", h.ID()))
 
-	h.SetStreamHandler(ProtoIDv2Hop, r.handleStream)
+	h.SetStreamHandler(proto.ProtoIDv2Hop, r.handleStream)
 	h.Network().Notify(
 		&network.NotifyBundle{
 			DisconnectedF: r.disconnected,
@@ -90,7 +88,7 @@ func New(h host.Host, opts ...Option) (*Relay, error) {
 
 func (r *Relay) Close() error {
 	if atomic.CompareAndSwapUint32(&r.closed, 0, 1) {
-		r.host.RemoveStreamHandler(ProtoIDv2Hop)
+		r.host.RemoveStreamHandler(proto.ProtoIDv2Hop)
 		r.cancel()
 		r.mx.Lock()
 		for p := range r.rsvp {
@@ -237,7 +235,7 @@ func (r *Relay) handleConnect(s network.Stream, msg *pbv2.HopMessage) {
 
 	ctx = network.WithNoDial(ctx, "relay connect")
 
-	bs, err := r.host.NewStream(ctx, dest.ID, ProtoIDv2Stop)
+	bs, err := r.host.NewStream(ctx, dest.ID, proto.ProtoIDv2Stop)
 	if err != nil {
 		log.Debugf("error opening relay stream to %s: %s", dest.ID, err)
 		cleanup()
