@@ -416,12 +416,32 @@ func (r *Relay) makeReservationMsg(p peer.ID, expire time.Time) *pbv2.Reservatio
 		addrBytes = append(addrBytes, raddr.Bytes())
 	}
 
-	// TODO sign reservation voucher for p
-
-	return &pbv2.Reservation{
+	rsvp := &pbv2.Reservation{
 		Expire: &expireUnix,
 		Addrs:  addrBytes,
 	}
+
+	voucher := &proto.ReservationVoucher{
+		Relay:      r.host.ID(),
+		Peer:       p,
+		Expiration: expire,
+	}
+
+	err := voucher.Sign(r.host.Peerstore().PrivKey(r.host.ID()))
+	if err != nil {
+		log.Errorf("error signing voucher for %s: %s", p, err)
+		return rsvp
+	}
+
+	blob, err := voucher.Marshal()
+	if err != nil {
+		log.Errorf("error marshalling voucher for %s: %s", p, err)
+		return rsvp
+	}
+
+	rsvp.Voucher = blob
+
+	return rsvp
 }
 
 func (r *Relay) makeLimitMsg(p peer.ID) *pbv2.Limit {
