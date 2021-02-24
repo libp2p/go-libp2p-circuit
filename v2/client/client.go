@@ -30,8 +30,9 @@ type Client struct {
 
 	incoming chan accept
 
-	mx       sync.Mutex
-	hopCount map[peer.ID]int
+	mx          sync.Mutex
+	activeDials map[peer.ID]*completion
+	hopCount    map[peer.ID]int
 }
 
 type accept struct {
@@ -39,15 +40,21 @@ type accept struct {
 	writeResponse func() error
 }
 
+type completion struct {
+	ch  chan struct{}
+	err error
+}
+
 // New constructs a new p2p-circuit/v2 client, attached to the given host and using the given
 // upgrader to perform connection upgrades.
 func New(ctx context.Context, h host.Host, upgrader *tptu.Upgrader) (*Client, error) {
 	return &Client{
-		ctx:      ctx,
-		host:     h,
-		upgrader: upgrader,
-		incoming: make(chan accept),
-		hopCount: make(map[peer.ID]int),
+		ctx:         ctx,
+		host:        h,
+		upgrader:    upgrader,
+		incoming:    make(chan accept),
+		activeDials: make(map[peer.ID]*completion),
+		hopCount:    make(map[peer.ID]int),
 	}, nil
 }
 
