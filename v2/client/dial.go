@@ -50,7 +50,37 @@ func (c *Client) dial(ctx context.Context, a ma.Multiaddr, p peer.ID) (*Conn, er
 		return nil, fmt.Errorf("error parsing relay multiaddr '%s': %w", relayaddr, err)
 	}
 
-	return c.dialPeer(ctx, *rinfo, dinfo)
+retry:
+	c.mx.Lock()
+	dedup, active := c.activeDials[p]
+	if !active {
+		dedup = &completion{ch: make(chan struct{})}
+		c.activeDials[p] = dedup
+	}
+	c.mx.Unlock()
+
+	if active {
+		select {
+		case <-dedup.ch:
+			if dedup.err != nil {
+				goto retry
+			}
+			return nil, fmt.Errorf("concurrent active dial succeeded")
+
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+
+	conn, err := c.dialPeer(ctx, *rinfo, dinfo)
+
+	c.mx.Lock()
+	dedup.err = err
+	close(dedup.ch)
+	delete(c.activeDials, p)
+	c.mx.Unlock()
+
+	return conn, err
 }
 
 func (c *Client) dialPeer(ctx context.Context, relay, dest peer.AddrInfo) (*Conn, error) {
