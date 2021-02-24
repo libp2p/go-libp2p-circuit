@@ -263,14 +263,16 @@ func TestRelayLimitData(t *testing.T) {
 		defer s.Close()
 		defer close(rch)
 
-		buf := make([]byte, 4096)
-		n, err := s.Read(buf)
-		if err != nil {
-			t.Fatal(err)
+		buf := make([]byte, 1024)
+		for i := 0; i < 3; i++ {
+			n, err := s.Read(buf)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rch <- n
 		}
-		rch <- n
 
-		n, err = s.Read(buf)
+		n, err := s.Read(buf)
 		if err != mux.ErrReset {
 			t.Fatalf("expected reset but got %s", err)
 		}
@@ -320,22 +322,24 @@ func TestRelayLimitData(t *testing.T) {
 	}
 
 	buf := make([]byte, 1024)
-	_, err = rand.Read(buf)
-	if err != nil {
-		t.Fatal(err)
-	}
+	for i := 0; i < 3; i++ {
+		_, err = rand.Read(buf)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	n, err := s.Write(buf)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if n != len(buf) {
-		t.Fatalf("expected to write %d bytes but wrote %d", len(buf), n)
-	}
+		n, err := s.Write(buf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n != len(buf) {
+			t.Fatalf("expected to write %d bytes but wrote %d", len(buf), n)
+		}
 
-	n = <-rch
-	if n != len(buf) {
-		t.Fatalf("expected to read %d bytes but read %d", len(buf), n)
+		n = <-rch
+		if n != len(buf) {
+			t.Fatalf("expected to read %d bytes but read %d", len(buf), n)
+		}
 	}
 
 	buf = make([]byte, 4096)
@@ -346,7 +350,7 @@ func TestRelayLimitData(t *testing.T) {
 
 	s.Write(buf)
 
-	n = <-rch
+	n := <-rch
 	if n != 0 {
 		t.Fatalf("expected to read 0 bytes but read %d", n)
 	}
