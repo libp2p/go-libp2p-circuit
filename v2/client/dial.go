@@ -21,6 +21,25 @@ const maxMessageSize = 4096
 
 var DialTimeout = time.Minute
 
+// relay protocol errors; used for signalling deduplication
+type relayError struct {
+	err string
+}
+
+func (e relayError) Error() string {
+	return e.err
+}
+
+func newRelayError(t string, args ...interface{}) error {
+	return relayError{err: fmt.Sprintf(t, args...)}
+}
+
+func isRelayError(err error) bool {
+	_, ok := err.(relayError)
+	return ok
+}
+
+// dialer
 func (c *Client) dial(ctx context.Context, a ma.Multiaddr, p peer.ID) (*Conn, error) {
 	// split /a/p2p-circuit/b into (/a, /p2p-circuit/b)
 	relayaddr, destaddr := ma.SplitFunc(a, func(c ma.Component) bool {
@@ -50,11 +69,12 @@ func (c *Client) dial(ctx context.Context, a ma.Multiaddr, p peer.ID) (*Conn, er
 		return nil, fmt.Errorf("error parsing relay multiaddr '%s': %w", relayaddr, err)
 	}
 
+	// deduplicate active relay dials to the same peer
 retry:
 	c.mx.Lock()
 	dedup, active := c.activeDials[p]
 	if !active {
-		dedup = &completion{ch: make(chan struct{})}
+		dedup = &completion{ch: make(chan struct{}), relay: rinfo.ID}
 		c.activeDials[p] = dedup
 	}
 	c.mx.Unlock()
@@ -63,8 +83,20 @@ retry:
 		select {
 		case <-dedup.ch:
 			if dedup.err != nil {
-				goto retry
+				if dedup.relay != rinfo.ID {
+					// different relay, retry
+					goto retry
+				}
+
+				if !isRelayError(dedup.err) {
+					// not a relay protocol error, retry
+					goto retry
+				}
+
+				// don't try the same relay if it failed to connect with a protocol error
+				return nil, fmt.Errorf("concurrent active dial through the same relay failed with a protocol error")
 			}
+
 			return nil, fmt.Errorf("concurrent active dial succeeded")
 
 		case <-ctx.Done():
@@ -138,13 +170,13 @@ func (c *Client) connectV2(s network.Stream, dest peer.AddrInfo) (*Conn, error) 
 
 	if msg.GetType() != pbv2.HopMessage_STATUS {
 		s.Reset()
-		return nil, fmt.Errorf("unexpected relay response; not a status message (%d)", msg.GetType())
+		return nil, newRelayError("unexpected relay response; not a status message (%d)", msg.GetType())
 	}
 
 	status := msg.GetStatus()
 	if status != pbv2.Status_OK {
 		s.Reset()
-		return nil, fmt.Errorf("error opening relay circuit: %s (%d)", pbv2.Status_name[int32(status)], status)
+		return nil, newRelayError("error opening relay circuit: %s (%d)", pbv2.Status_name[int32(status)], status)
 	}
 
 	// check for a limit provided by the relay; if the limit is not nil, then this is a limited
@@ -191,13 +223,13 @@ func (c *Client) connectV1(s network.Stream, dest peer.AddrInfo) (*Conn, error) 
 
 	if msg.GetType() != pbv1.CircuitRelay_STATUS {
 		s.Reset()
-		return nil, fmt.Errorf("unexpected relay response; not a status message (%d)", msg.GetType())
+		return nil, newRelayError("unexpected relay response; not a status message (%d)", msg.GetType())
 	}
 
 	status := msg.GetCode()
 	if status != pbv1.CircuitRelay_SUCCESS {
 		s.Reset()
-		return nil, fmt.Errorf("error opening relay circuit: %s (%d)", pbv1.CircuitRelay_Status_name[int32(status)], status)
+		return nil, newRelayError("error opening relay circuit: %s (%d)", pbv1.CircuitRelay_Status_name[int32(status)], status)
 	}
 
 	return &Conn{stream: s, remote: dest, client: c}, nil

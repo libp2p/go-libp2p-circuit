@@ -41,8 +41,9 @@ type accept struct {
 }
 
 type completion struct {
-	ch  chan struct{}
-	err error
+	ch    chan struct{}
+	relay peer.ID
+	err   error
 }
 
 // New constructs a new p2p-circuit/v2 client, attached to the given host and using the given
