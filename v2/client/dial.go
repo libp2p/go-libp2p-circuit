@@ -20,6 +20,7 @@ import (
 const maxMessageSize = 4096
 
 var DialTimeout = time.Minute
+var DialRelayTimeout = 5 * time.Second
 
 // relay protocol errors; used for signalling deduplication
 type relayError struct {
@@ -122,7 +123,9 @@ func (c *Client) dialPeer(ctx context.Context, relay, dest peer.AddrInfo) (*Conn
 		c.host.Peerstore().AddAddrs(relay.ID, relay.Addrs, peerstore.TempAddrTTL)
 	}
 
-	s, err := c.host.NewStream(ctx, relay.ID, proto.ProtoIDv2Hop, proto.ProtoIDv1)
+	dialCtx, cancel := context.WithTimeout(ctx, DialRelayTimeout)
+	defer cancel()
+	s, err := c.host.NewStream(dialCtx, relay.ID, proto.ProtoIDv2Hop, proto.ProtoIDv1)
 	if err != nil {
 		return nil, fmt.Errorf("error opening hop stream to relay: %w", err)
 	}
