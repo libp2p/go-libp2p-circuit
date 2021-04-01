@@ -299,7 +299,7 @@ func TestUnspecificRelayDialFails(t *testing.T) {
 		}
 	}()
 
-	addr := ma.StringCast(fmt.Sprintf("/p2p-circuit"))
+	addr := ma.StringCast("/p2p-circuit")
 
 	rctx, rcancel := context.WithTimeout(ctx, time.Second)
 	defer rcancel()
