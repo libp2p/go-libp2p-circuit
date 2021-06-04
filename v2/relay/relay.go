@@ -49,7 +49,7 @@ type Relay struct {
 	rsvp  map[peer.ID]time.Time
 	conns map[peer.ID]int
 
-	relayAddr ma.Multiaddr
+	selfAddr ma.Multiaddr
 }
 
 // New constructs a new limited relay that can provide relay services in the given host.
@@ -74,7 +74,7 @@ func New(h host.Host, opts ...Option) (*Relay, error) {
 	}
 
 	r.ipcs = NewIPConstraints(r.rc)
-	r.relayAddr = ma.StringCast(fmt.Sprintf("/p2p/%s/p2p-circuit", h.ID()))
+	r.selfAddr = ma.StringCast(fmt.Sprintf("/p2p/%s", h.ID()))
 
 	h.SetStreamHandler(proto.ProtoIDv2Hop, r.handleStream)
 	h.Network().Notify(
@@ -412,8 +412,8 @@ func (r *Relay) makeReservationMsg(p peer.ID, expire time.Time) *pbv2.Reservatio
 			continue
 		}
 
-		raddr := addr.Encapsulate(r.relayAddr)
-		addrBytes = append(addrBytes, raddr.Bytes())
+		addr = addr.Encapsulate(r.selfAddr)
+		addrBytes = append(addrBytes, addr.Bytes())
 	}
 
 	rsvp := &pbv2.Reservation{
