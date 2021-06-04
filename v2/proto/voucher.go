@@ -1,14 +1,22 @@
 package proto
 
 import (
-	"bytes"
-	"encoding/binary"
-	"fmt"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/crypto"
+	pbv2 "github.com/libp2p/go-libp2p-circuit/v2/pb"
+
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/record"
 )
+
+const RecordDomain = "libp2p-relay-rsvp"
+
+// TODO: register in multicodec table in https://github.com/multiformats/multicodec
+var RecordCodec = []byte{0x03, 0x02}
+
+func init() {
+	record.RegisterType(&ReservationVoucher{})
+}
 
 type ReservationVoucher struct {
 	// Relay is the ID of the peer providing relay service
@@ -17,123 +25,48 @@ type ReservationVoucher struct {
 	Peer peer.ID
 	// Expiration is the expiration time of the reservation
 	Expiration time.Time
-	// Signature is the signature of this voucher, as produced by the Relay peer
-	Signature []byte
 }
 
-func (rv *ReservationVoucher) bytes() []byte {
-	buf := make([]byte, 1024)
-	relayBytes := []byte(rv.Relay)
-	peerBytes := []byte(rv.Peer)
-	expireUnix := rv.Expiration.Unix()
+var _ record.Record = (*ReservationVoucher)(nil)
 
-	n := binary.PutUvarint(buf, uint64(len(relayBytes)))
-	n += copy(buf[n:], relayBytes)
-	n += binary.PutUvarint(buf[n:], uint64(len(peerBytes)))
-	n += copy(buf[n:], peerBytes)
-	n += binary.PutUvarint(buf[n:], uint64(expireUnix))
-
-	return buf[:n]
+func (rv *ReservationVoucher) Domain() string {
+	return RecordDomain
 }
 
-func (rv *ReservationVoucher) Sign(privk crypto.PrivKey) error {
-	if rv.Signature != nil {
-		return nil
+func (rv *ReservationVoucher) Codec() []byte {
+	return RecordCodec
+}
+
+func (rv *ReservationVoucher) MarshalRecord() ([]byte, error) {
+	relay := []byte(rv.Relay)
+	peer := []byte(rv.Peer)
+	expiration := uint64(rv.Expiration.Unix())
+	pbrv := &pbv2.ReservationVoucher{
+		Relay:      relay,
+		Peer:       peer,
+		Expiration: &expiration,
 	}
 
-	blob := append([]byte("libp2p-relay-rsvp:"), rv.bytes()...)
+	return pbrv.Marshal()
+}
 
-	sig, err := privk.Sign(blob)
+func (rv *ReservationVoucher) UnmarshalRecord(blob []byte) error {
+	pbrv := pbv2.ReservationVoucher{}
+	err := pbrv.Unmarshal(blob)
 	if err != nil {
 		return err
 	}
 
-	rv.Signature = sig
-	return nil
-}
-
-func (rv *ReservationVoucher) Verify(pubk crypto.PubKey) error {
-	if rv.Signature == nil {
-		return fmt.Errorf("missing signature")
-	}
-
-	blob := append([]byte("libp2p-relay-rsvp:"), rv.bytes()...)
-
-	ok, err := pubk.Verify(blob, rv.Signature)
+	rv.Relay, err = peer.IDFromBytes(pbrv.GetRelay())
 	if err != nil {
-		return fmt.Errorf("signature verification error: %w", err)
-	}
-	if !ok {
-		return fmt.Errorf("signature verifcation failed")
+		return err
 	}
 
-	return nil
-}
-
-func (rv *ReservationVoucher) Marshal() ([]byte, error) {
-	if rv.Signature == nil {
-		return nil, fmt.Errorf("cannot marshal unsigned reservation voucher")
-	}
-
-	blob := rv.bytes()
-	result := make([]byte, len(blob)+len(rv.Signature))
-	copy(result, blob)
-	copy(result[len(blob):], rv.Signature)
-
-	return result, nil
-}
-
-func (rv *ReservationVoucher) Unmarshal(blob []byte) error {
-	rd := bytes.NewReader(blob)
-
-	readID := func() (peer.ID, error) {
-		idLen, err := binary.ReadUvarint(rd)
-		if err != nil {
-			return "", fmt.Errorf("error reading ID length: %w", err)
-		}
-		if idLen > uint64(rd.Len()) {
-			return "", fmt.Errorf("error reading ID: ID length exceeds available bytes")
-		}
-
-		idBytes := make([]byte, int(idLen))
-		n, err := rd.Read(idBytes)
-		if err != nil {
-			return "", fmt.Errorf("error reading ID: %w", err)
-		}
-		if n != len(idBytes) {
-			return "", fmt.Errorf("error reading ID: not enough bytes read")
-		}
-
-		return peer.IDFromBytes(idBytes)
-	}
-
-	var err error
-
-	rv.Relay, err = readID()
+	rv.Peer, err = peer.IDFromBytes(pbrv.GetPeer())
 	if err != nil {
-		return fmt.Errorf("error reading relay ID: %w", err)
+		return err
 	}
 
-	rv.Peer, err = readID()
-	if err != nil {
-		return fmt.Errorf("error reading peer ID: %w", err)
-	}
-
-	expireUnix, err := binary.ReadUvarint(rd)
-	if err != nil {
-		return fmt.Errorf("error reading reservation expiration: %w", err)
-	}
-	rv.Expiration = time.Unix(int64(expireUnix), 0)
-
-	sig := make([]byte, rd.Len())
-	n, err := rd.Read(sig)
-	if err != nil {
-		return fmt.Errorf("error reading signature: %w", err)
-	}
-	if n != len(sig) {
-		return fmt.Errorf("error reading signature: not enough bytes read")
-	}
-	rv.Signature = sig
-
+	rv.Expiration = time.Unix(int64(pbrv.GetExpiration()), 0)
 	return nil
 }

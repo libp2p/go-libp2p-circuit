@@ -12,6 +12,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/libp2p/go-libp2p-core/record"
 
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -98,16 +99,14 @@ func Reserve(ctx context.Context, h host.Host, ai peer.AddrInfo) (*Reservation, 
 
 	voucherBytes := rsvp.GetVoucher()
 	if voucherBytes != nil {
-		voucher := new(proto.ReservationVoucher)
-
-		err := voucher.Unmarshal(voucherBytes)
+		_, rec, err := record.ConsumeEnvelope(voucherBytes, proto.RecordDomain)
 		if err != nil {
-			return nil, fmt.Errorf("error unmarshalling reservation voucher from relay: %w", err)
+			return nil, fmt.Errorf("error consuming voucher envelope: %w", err)
 		}
 
-		err = voucher.Verify(h.Peerstore().PubKey(ai.ID))
-		if err != nil {
-			return nil, fmt.Errorf("error verifying voucher from relay: %w", err)
+		voucher, ok := rec.(*proto.ReservationVoucher)
+		if !ok {
+			return nil, fmt.Errorf("unexpected voucher record type: %+T", rec)
 		}
 
 		result.Voucher = voucher

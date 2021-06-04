@@ -15,6 +15,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/record"
 
 	logging "github.com/ipfs/go-log"
 	pool "github.com/libp2p/go-buffer-pool"
@@ -441,13 +442,13 @@ func (r *Relay) makeReservationMsg(p peer.ID, expire time.Time) *pbv2.Reservatio
 		Expiration: expire,
 	}
 
-	err := voucher.Sign(r.host.Peerstore().PrivKey(r.host.ID()))
+	envelope, err := record.Seal(voucher, r.host.Peerstore().PrivKey(r.host.ID()))
 	if err != nil {
-		log.Errorf("error signing voucher for %s: %s", p, err)
+		log.Errorf("error sealing voucher for %s: %s", p, err)
 		return rsvp
 	}
 
-	blob, err := voucher.Marshal()
+	blob, err := envelope.Marshal()
 	if err != nil {
 		log.Errorf("error marshalling voucher for %s: %s", p, err)
 		return rsvp
