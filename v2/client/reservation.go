@@ -31,7 +31,7 @@ type Reservation struct {
 	LimitDuration time.Duration
 	// LimitData is the number of bytes that the relay will relay in each direction before
 	// resetting a relayed connection.
-	LimitData int64
+	LimitData uint64
 
 	// Voucher is a signed reservation voucher provided by the relay
 	Voucher *proto.ReservationVoucher
@@ -85,7 +85,7 @@ func Reserve(ctx context.Context, h host.Host, ai peer.AddrInfo) (*Reservation, 
 	}
 
 	result := &Reservation{}
-	result.Expiration = time.Unix(rsvp.GetExpire(), 0)
+	result.Expiration = time.Unix(int64(rsvp.GetExpire()), 0)
 
 	for _, ab := range rsvp.GetAddrs() {
 		a, err := ma.NewMultiaddrBytes(ab)

@@ -418,7 +418,7 @@ func (r *Relay) writeResponse(s network.Stream, status pbv2.Status, rsvp *pbv2.R
 }
 
 func (r *Relay) makeReservationMsg(p peer.ID, expire time.Time) *pbv2.Reservation {
-	expireUnix := expire.Unix()
+	expireUnix := uint64(expire.Unix())
 
 	var addrBytes [][]byte
 	for _, addr := range r.host.Addrs() {
@@ -463,8 +463,8 @@ func (r *Relay) makeLimitMsg(p peer.ID) *pbv2.Limit {
 		return nil
 	}
 
-	duration := int32(r.rc.Limit.Duration / time.Second)
-	data := int64(r.rc.Limit.Data)
+	duration := uint32(r.rc.Limit.Duration / time.Second)
+	data := uint64(r.rc.Limit.Data)
 
 	return &pbv2.Limit{
 		Duration: &duration,

@@ -38,14 +38,14 @@ message Peer {
 }
 
 message Reservation {
-  optional int64 expire = 1;  // Unix expiration time (UTC)
+  optional uint64 expire = 1; // Unix expiration time (UTC)
   repeated bytes addrs = 2;   // relay addrs for reserving peer
   optional bytes voucher = 3; // reservation voucher
 }
 
 message Limit {
-  optional int32 duration = 1; // seconds
-  optional int64 data = 2;     // bytes
+  optional uint32 duration = 1; // seconds
+  optional uint64 data = 2;     // bytes
 }
 
 enum Status {
