@@ -6,6 +6,7 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/record"
 )
 
 func TestReservationVoucher(t *testing.T) {
@@ -35,25 +36,24 @@ func TestReservationVoucher(t *testing.T) {
 		Expiration: time.Now().Add(time.Hour),
 	}
 
-	err = rsvp.Sign(relayPrivk)
+	envelope, err := record.Seal(rsvp, relayPrivk)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	blob, err := rsvp.Marshal()
+	blob, err := envelope.Marshal()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	rsvp2 := new(ReservationVoucher)
-	err = rsvp2.Unmarshal(blob)
+	envelope, rec, err := record.ConsumeEnvelope(blob, RecordDomain)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = rsvp2.Verify(relayPubk)
-	if err != nil {
-		t.Fatal(err)
+	rsvp2, ok := rec.(*ReservationVoucher)
+	if !ok {
+		t.Fatalf("invalid record type %+T", rec)
 	}
 
 	if rsvp.Relay != rsvp2.Relay {
