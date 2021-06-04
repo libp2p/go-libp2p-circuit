@@ -135,6 +135,12 @@ func (r *Relay) handleReserve(s network.Stream, msg *pbv2.HopMessage) {
 	p := s.Conn().RemotePeer()
 	a := s.Conn().RemoteMultiaddr()
 
+	if util.IsRelayAddr(a) {
+		log.Debugf("refusing relay reservation for %s; reservation attempt over relay connection")
+		r.handleError(s, pbv2.Status_PERMISSION_DENIED)
+		return
+	}
+
 	if r.acl != nil && !r.acl.AllowReserve(p, a) {
 		log.Debugf("refusing relay reservation for %s; permission denied", p)
 		r.handleError(s, pbv2.Status_PERMISSION_DENIED)
@@ -182,6 +188,14 @@ func (r *Relay) handleReserve(s network.Stream, msg *pbv2.HopMessage) {
 
 func (r *Relay) handleConnect(s network.Stream, msg *pbv2.HopMessage) {
 	src := s.Conn().RemotePeer()
+	a := s.Conn().RemoteMultiaddr()
+
+	if util.IsRelayAddr(a) {
+		log.Debugf("refusing connection from %s; connection attempt over relay connection")
+		r.handleError(s, pbv2.Status_PERMISSION_DENIED)
+		return
+	}
+
 	dest, err := util.PeerToPeerInfoV2(msg.GetPeer())
 	if err != nil {
 		r.handleError(s, pbv2.Status_MALFORMED_MESSAGE)
