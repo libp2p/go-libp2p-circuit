@@ -50,7 +50,7 @@ func (d *DelimitedReader) ReadMsg(msg proto.Message) error {
 	}
 
 	if uint64(len(d.buf)) < mlen {
-		return errors.New("Message too large")
+		return errors.New("message too large")
 	}
 
 	buf := d.buf[:mlen]

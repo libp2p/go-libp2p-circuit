@@ -86,6 +86,9 @@ func TestRelayCompatV2DialV1(t *testing.T) {
 
 	msg := []byte("relay works!")
 	nwritten, err := s.Write(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if nwritten != len(msg) {
 		t.Fatalf("expected to write %d bytes, but wrote %d instead", len(msg), nwritten)
 	}
@@ -159,6 +162,9 @@ func TestRelayCompatV1DialV2(t *testing.T) {
 
 	msg := []byte("relay works!")
 	nwritten, err := s.Write(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if nwritten != len(msg) {
 		t.Fatalf("expected to write %d bytes, but wrote %d instead", len(msg), nwritten)
 	}

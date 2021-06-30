@@ -9,7 +9,6 @@ require (
 	github.com/libp2p/go-libp2p-asn-util v0.0.0-20210211060025-0db24c10d3bd
 	github.com/libp2p/go-libp2p-blankhost v0.2.0
 	github.com/libp2p/go-libp2p-core v0.8.3
-	github.com/libp2p/go-libp2p-metrics v0.1.0
 	github.com/libp2p/go-libp2p-peerstore v0.2.6
 	github.com/libp2p/go-libp2p-swarm v0.4.3
 	github.com/libp2p/go-libp2p-transport-upgrader v0.4.2

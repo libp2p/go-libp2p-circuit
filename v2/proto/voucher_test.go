@@ -46,7 +46,7 @@ func TestReservationVoucher(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	envelope, rec, err := record.ConsumeEnvelope(blob, RecordDomain)
+	_, rec, err := record.ConsumeEnvelope(blob, RecordDomain)
 	if err != nil {
 		t.Fatal(err)
 	}

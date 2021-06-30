@@ -20,7 +20,7 @@ import (
 
 	logging "github.com/ipfs/go-log"
 	bhost "github.com/libp2p/go-libp2p-blankhost"
-	metrics "github.com/libp2p/go-libp2p-metrics"
+	metrics "github.com/libp2p/go-libp2p-core/metrics"
 	pstoremem "github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
@@ -165,6 +165,9 @@ func TestBasicRelay(t *testing.T) {
 
 	msg := []byte("relay works!")
 	nwritten, err := s.Write(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if nwritten != len(msg) {
 		t.Fatalf("expected to write %d bytes, but wrote %d instead", len(msg), nwritten)
 	}
