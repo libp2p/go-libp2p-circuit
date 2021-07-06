@@ -175,15 +175,12 @@ func (r *Relay) handleReserve(s network.Stream) {
 
 	log.Debugf("reserving relay slot for %s", p)
 
-	err := r.writeResponse(s, pbv2.Status_OK, r.makeReservationMsg(p, expire), r.makeLimitMsg(p))
-	if err != nil {
-		s.Reset()
+	// Delivery of the reservation might fail for a number of reasons.
+	// For example, the stream might be reset or the connection might be closed before the reservation is received.
+	// In that case, the reservation will just be garbage collected later.
+	if err := r.writeResponse(s, pbv2.Status_OK, r.makeReservationMsg(p, expire), r.makeLimitMsg(p)); err != nil {
 		log.Debugf("error writing reservation response; retracting reservation for %s", p)
-		r.mx.Lock()
-		delete(r.rsvp, p)
-		r.ipcs.RemoveReservation(p)
-		r.host.ConnManager().UntagPeer(p, "relay-reservation")
-		r.mx.Unlock()
+		s.Reset()
 	}
 }
 
