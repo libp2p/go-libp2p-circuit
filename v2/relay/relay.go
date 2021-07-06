@@ -120,7 +120,7 @@ func (r *Relay) handleStream(s network.Stream) {
 
 	switch msg.GetType() {
 	case pbv2.HopMessage_RESERVE:
-		r.handleReserve(s, &msg)
+		r.handleReserve(s)
 
 	case pbv2.HopMessage_CONNECT:
 		r.handleConnect(s, &msg)
@@ -130,7 +130,7 @@ func (r *Relay) handleStream(s network.Stream) {
 	}
 }
 
-func (r *Relay) handleReserve(s network.Stream, msg *pbv2.HopMessage) {
+func (r *Relay) handleReserve(s network.Stream) {
 	defer s.Close()
 
 	p := s.Conn().RemotePeer()
