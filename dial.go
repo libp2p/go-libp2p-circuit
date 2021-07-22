@@ -21,7 +21,7 @@ func (d *RelayTransport) Dial(ctx context.Context, a ma.Multiaddr, p peer.ID) (t
 func (r *Relay) Dial(ctx context.Context, a ma.Multiaddr, p peer.ID) (*Conn, error) {
 	// split /a/p2p-circuit/b into (/a, /p2p-circuit/b)
 	relayaddr, destaddr := ma.SplitFunc(a, func(c ma.Component) bool {
-		return c.Protocol().Code == P_CIRCUIT
+		return c.Protocol().Code == ma.P_CIRCUIT
 	})
 
 	// If the address contained no /p2p-circuit part, the second part is nil.

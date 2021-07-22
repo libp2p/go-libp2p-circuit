@@ -6,18 +6,11 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/transport"
-
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-// Deprecated: use ma.P_CIRCUIT
-const P_CIRCUIT = ma.P_CIRCUIT
-
-// Deprecated: use ma.ProtocolWithCode(P_CIRCUIT)
-var Protocol = ma.ProtocolWithCode(P_CIRCUIT)
-
-var circuitAddr = ma.Cast(Protocol.VCode)
+var circuitAddr = ma.Cast(ma.ProtocolWithCode(ma.P_CIRCUIT).VCode)
 
 var _ transport.Transport = (*RelayTransport)(nil)
 
@@ -49,7 +42,7 @@ func (t *RelayTransport) Proxy() bool {
 }
 
 func (t *RelayTransport) Protocols() []int {
-	return []int{P_CIRCUIT}
+	return []int{ma.P_CIRCUIT}
 }
 
 // AddRelayTransport constructs a relay and adds it as a transport to the host network.
