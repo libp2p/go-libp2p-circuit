@@ -198,7 +198,7 @@ func (r *Relay) DialPeer(ctx context.Context, relay peer.AddrInfo, dest peer.Add
 
 func (r *Relay) Matches(addr ma.Multiaddr) bool {
 	// TODO: Look at the prefix transport as well.
-	_, err := addr.ValueForProtocol(P_CIRCUIT)
+	_, err := addr.ValueForProtocol(ma.P_CIRCUIT)
 	return err == nil
 }
 
