@@ -21,10 +21,10 @@ type Resources struct {
 	BufferSize int
 
 	// MaxReservationsPerPeer is the maximum number of reservations originating from the same
-	// peer; default is 8.
+	// peer; default is 4.
 	MaxReservationsPerPeer int
 	// MaxReservationsPerIP is the maximum number of reservations originating from the same
-	// IP address; default is 4.
+	// IP address; default is 8.
 	MaxReservationsPerIP int
 	// MaxReservationsPerASN is the maximum number of reservations origination from the same
 	// ASN; default is 32
@@ -51,8 +51,8 @@ func DefaultResources() Resources {
 		MaxCircuits:     16,
 		BufferSize:      2048,
 
-		MaxReservationsPerPeer: 8,
-		MaxReservationsPerIP:   4,
+		MaxReservationsPerPeer: 4,
+		MaxReservationsPerIP:   8,
 		MaxReservationsPerASN:  32,
 	}
 }
