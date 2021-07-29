@@ -44,7 +44,9 @@ type constraints struct {
 // is required.
 func newConstraints(rc *Resources) *constraints {
 	b := make([]byte, 8)
-	crand.Read(b)
+	if _, err := crand.Read(b); err != nil {
+		panic("failed to read from crypto/rand")
+	}
 	random := rand.New(rand.NewSource(int64(binary.BigEndian.Uint64(b))))
 
 	c := &constraints{
