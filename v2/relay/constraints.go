@@ -39,10 +39,10 @@ type constraints struct {
 	asns  map[string]map[uint64]time.Time
 }
 
-// NewConstraints creates a new constraints object.
+// newConstraints creates a new constraints object.
 // The methods are *not* thread-safe; an external lock must be held if synchronization
 // is required.
-func NewConstraints(rc *Resources) *constraints {
+func newConstraints(rc *Resources) *constraints {
 	b := make([]byte, 8)
 	crand.Read(b)
 	random := rand.New(rand.NewSource(int64(binary.BigEndian.Uint64(b))))

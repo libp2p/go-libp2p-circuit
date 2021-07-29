@@ -74,7 +74,7 @@ func New(h host.Host, opts ...Option) (*Relay, error) {
 		}
 	}
 
-	r.constraints = NewConstraints(&r.rc)
+	r.constraints = newConstraints(&r.rc)
 	r.selfAddr = ma.StringCast(fmt.Sprintf("/p2p/%s", h.ID()))
 
 	h.SetStreamHandler(proto.ProtoIDv2Hop, r.handleStream)

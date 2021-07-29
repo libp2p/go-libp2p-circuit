@@ -37,7 +37,7 @@ func TestConstraints(t *testing.T) {
 	t.Run("total reservations", func(t *testing.T) {
 		res := infResources()
 		res.MaxReservations = limit
-		c := NewConstraints(res)
+		c := newConstraints(res)
 		defer c.Close()
 		for i := 0; i < limit; i++ {
 			if err := c.AddReservation(test.RandPeerIDFatal(t), randomIPv4Addr(t)); err != nil {
@@ -53,7 +53,7 @@ func TestConstraints(t *testing.T) {
 		p := test.RandPeerIDFatal(t)
 		res := infResources()
 		res.MaxReservationsPerPeer = limit
-		c := NewConstraints(res)
+		c := newConstraints(res)
 		defer c.Close()
 		for i := 0; i < limit; i++ {
 			if err := c.AddReservation(p, randomIPv4Addr(t)); err != nil {
@@ -72,7 +72,7 @@ func TestConstraints(t *testing.T) {
 		ip := randomIPv4Addr(t)
 		res := infResources()
 		res.MaxReservationsPerIP = limit
-		c := NewConstraints(res)
+		c := newConstraints(res)
 		defer c.Close()
 		for i := 0; i < limit; i++ {
 			if err := c.AddReservation(test.RandPeerIDFatal(t), ip); err != nil {
@@ -99,7 +99,7 @@ func TestConstraints(t *testing.T) {
 
 		res := infResources()
 		res.MaxReservationsPerASN = limit
-		c := NewConstraints(res)
+		c := newConstraints(res)
 		defer c.Close()
 		const ipv6Prefix = "2a03:2880:f003:c07:face:b00c::"
 		for i := 0; i < limit; i++ {
@@ -134,7 +134,7 @@ func TestConstraintsCleanup(t *testing.T) {
 		MaxReservationsPerIP:   math.MaxInt32,
 		MaxReservationsPerASN:  math.MaxInt32,
 	}
-	c := NewConstraints(res)
+	c := newConstraints(res)
 	defer c.Close()
 	for i := 0; i < limit; i++ {
 		if err := c.AddReservation(test.RandPeerIDFatal(t), randomIPv4Addr(t)); err != nil {
