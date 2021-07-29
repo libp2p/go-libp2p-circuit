@@ -83,8 +83,7 @@ func (c *constraints) AddReservation(p peer.ID, a ma.Multiaddr) error {
 		return errTooManyReservationsForPeer
 	}
 
-	ipStr := ip.String()
-	ipReservations := c.ips[ipStr]
+	ipReservations := c.ips[ip.String()]
 	if len(ipReservations) >= c.rc.MaxReservationsPerIP {
 		return errTooManyReservationsForIP
 	}
@@ -114,7 +113,7 @@ func (c *constraints) AddReservation(p peer.ID, a ma.Multiaddr) error {
 
 	if ipReservations == nil {
 		ipReservations = make(map[uint64]time.Time)
-		c.ips[ipStr] = ipReservations
+		c.ips[ip.String()] = ipReservations
 	}
 	ipReservations[id] = now
 
