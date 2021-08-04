@@ -1,7 +1,6 @@
 package relay
 
 import (
-	"container/list"
 	crand "crypto/rand"
 	"encoding/binary"
 	"errors"
@@ -24,20 +23,16 @@ var (
 	errTooManyReservationsForASN  = errors.New("too many peers for ASN")
 )
 
-type listEntry struct {
-	t time.Time
-}
-
 // constraints implements various reservation constraints
 type constraints struct {
 	rc *Resources
 
 	mutex sync.Mutex
 	rand  rand.Rand
-	total *list.List
-	peers map[peer.ID]*list.List
-	ips   map[string]*list.List
-	asns  map[string]*list.List
+	total []time.Time
+	peers map[peer.ID][]time.Time
+	ips   map[string][]time.Time
+	asns  map[string][]time.Time
 }
 
 // newConstraints creates a new constraints object.
@@ -53,10 +48,9 @@ func newConstraints(rc *Resources) *constraints {
 	return &constraints{
 		rc:    rc,
 		rand:  *random,
-		total: list.New(),
-		peers: make(map[peer.ID]*list.List),
-		ips:   make(map[string]*list.List),
-		asns:  make(map[string]*list.List),
+		peers: make(map[peer.ID][]time.Time),
+		ips:   make(map[string][]time.Time),
+		asns:  make(map[string][]time.Time),
 	}
 }
 
@@ -69,7 +63,7 @@ func (c *constraints) AddReservation(p peer.ID, a ma.Multiaddr) error {
 	now := time.Now()
 	c.cleanup(now)
 
-	if c.total.Len() >= c.rc.MaxReservations {
+	if len(c.total) >= c.rc.MaxReservations {
 		return errTooManyReservations
 	}
 
@@ -78,76 +72,64 @@ func (c *constraints) AddReservation(p peer.ID, a ma.Multiaddr) error {
 		return errors.New("no IP address associated with peer")
 	}
 
-	peerReservations, ok := c.peers[p]
-	if ok && peerReservations.Len() >= c.rc.MaxReservationsPerPeer {
+	peerReservations := c.peers[p]
+	if len(peerReservations) >= c.rc.MaxReservationsPerPeer {
 		return errTooManyReservationsForPeer
 	}
 
-	ipReservations, ok := c.ips[ip.String()]
-	if ok && ipReservations.Len() >= c.rc.MaxReservationsPerIP {
+	ipReservations := c.ips[ip.String()]
+	if len(ipReservations) >= c.rc.MaxReservationsPerIP {
 		return errTooManyReservationsForIP
 	}
 
-	var asnReservations *list.List
+	var asnReservations []time.Time
 	var asn string
 	if ip.To4() == nil {
 		asn, _ = asnutil.Store.AsnForIPv6(ip)
 		if asn != "" {
-			var ok bool
-			asnReservations, ok = c.asns[asn]
-			if ok && asnReservations.Len() >= c.rc.MaxReservationsPerASN {
+			asnReservations = c.asns[asn]
+			if len(asnReservations) >= c.rc.MaxReservationsPerASN {
 				return errTooManyReservationsForASN
 			}
 		}
 	}
 
 	expiry := now.Add(validity)
-	c.total.PushBack(listEntry{t: expiry})
+	c.total = append(c.total, expiry)
 
-	if peerReservations == nil {
-		peerReservations = list.New()
-		c.peers[p] = peerReservations
-	}
-	peerReservations.PushBack(listEntry{t: expiry})
+	peerReservations = append(peerReservations, expiry)
+	c.peers[p] = peerReservations
 
-	if ipReservations == nil {
-		ipReservations = list.New()
-		c.ips[ip.String()] = ipReservations
-	}
-	ipReservations.PushBack(listEntry{t: expiry})
+	ipReservations = append(ipReservations, expiry)
+	c.ips[ip.String()] = ipReservations
 
 	if asn != "" {
-		if asnReservations == nil {
-			asnReservations = list.New()
-			c.asns[asn] = asnReservations
-		}
-		asnReservations.PushBack(listEntry{t: expiry})
+		asnReservations = append(asnReservations, expiry)
+		c.asns[asn] = asnReservations
 	}
-
 	return nil
 }
 
-func (c *constraints) cleanupList(l *list.List, now time.Time) {
-	for el := l.Front(); el != nil; {
-		entry := el.Value.(listEntry)
-		if entry.t.After(now) {
-			return
+func (c *constraints) cleanupList(l []time.Time, now time.Time) []time.Time {
+	var index int
+	for i, t := range l {
+		if t.After(now) {
+			break
 		}
-		nextEl := el.Next()
-		l.Remove(el)
-		el = nextEl
+		index = i + 1
 	}
+	return l[index:]
 }
 
 func (c *constraints) cleanup(now time.Time) {
-	c.cleanupList(c.total, now)
-	for _, peerReservations := range c.peers {
-		c.cleanupList(peerReservations, now)
+	c.total = c.cleanupList(c.total, now)
+	for k, peerReservations := range c.peers {
+		c.peers[k] = c.cleanupList(peerReservations, now)
 	}
-	for _, ipReservations := range c.ips {
-		c.cleanupList(ipReservations, now)
+	for k, ipReservations := range c.ips {
+		c.ips[k] = c.cleanupList(ipReservations, now)
 	}
-	for _, asnReservations := range c.asns {
-		c.cleanupList(asnReservations, now)
+	for k, asnReservations := range c.asns {
+		c.asns[k] = c.cleanupList(asnReservations, now)
 	}
 }
