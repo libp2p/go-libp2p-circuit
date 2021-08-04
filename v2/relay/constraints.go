@@ -101,26 +101,27 @@ func (c *constraints) AddReservation(p peer.ID, a ma.Multiaddr) error {
 		}
 	}
 
-	c.total.PushBack(listEntry{t: now})
+	expiry := now.Add(validity)
+	c.total.PushBack(listEntry{t: expiry})
 
 	if peerReservations == nil {
 		peerReservations = list.New()
 		c.peers[p] = peerReservations
 	}
-	peerReservations.PushBack(listEntry{t: now})
+	peerReservations.PushBack(listEntry{t: expiry})
 
 	if ipReservations == nil {
 		ipReservations = list.New()
 		c.ips[ip.String()] = ipReservations
 	}
-	ipReservations.PushBack(listEntry{t: now})
+	ipReservations.PushBack(listEntry{t: expiry})
 
 	if asn != "" {
 		if asnReservations == nil {
 			asnReservations = list.New()
 			c.asns[asn] = asnReservations
 		}
-		asnReservations.PushBack(listEntry{t: now})
+		asnReservations.PushBack(listEntry{t: expiry})
 	}
 
 	return nil
@@ -129,7 +130,7 @@ func (c *constraints) AddReservation(p peer.ID, a ma.Multiaddr) error {
 func (c *constraints) cleanupList(l *list.List, now time.Time) {
 	for el := l.Front(); el != nil; {
 		entry := el.Value.(listEntry)
-		if entry.t.Add(validity).After(now) {
+		if entry.t.After(now) {
 			return
 		}
 		nextEl := el.Next()
