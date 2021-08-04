@@ -38,7 +38,6 @@ func TestConstraints(t *testing.T) {
 		res := infResources()
 		res.MaxReservations = limit
 		c := newConstraints(res)
-		defer c.Close()
 		for i := 0; i < limit; i++ {
 			if err := c.AddReservation(test.RandPeerIDFatal(t), randomIPv4Addr(t)); err != nil {
 				t.Fatal(err)
@@ -54,7 +53,6 @@ func TestConstraints(t *testing.T) {
 		res := infResources()
 		res.MaxReservationsPerPeer = limit
 		c := newConstraints(res)
-		defer c.Close()
 		for i := 0; i < limit; i++ {
 			if err := c.AddReservation(p, randomIPv4Addr(t)); err != nil {
 				t.Fatal(err)
@@ -73,7 +71,6 @@ func TestConstraints(t *testing.T) {
 		res := infResources()
 		res.MaxReservationsPerIP = limit
 		c := newConstraints(res)
-		defer c.Close()
 		for i := 0; i < limit; i++ {
 			if err := c.AddReservation(test.RandPeerIDFatal(t), ip); err != nil {
 				t.Fatal(err)
@@ -100,7 +97,6 @@ func TestConstraints(t *testing.T) {
 		res := infResources()
 		res.MaxReservationsPerASN = limit
 		c := newConstraints(res)
-		defer c.Close()
 		const ipv6Prefix = "2a03:2880:f003:c07:face:b00c::"
 		for i := 0; i < limit; i++ {
 			addr := getAddr(t, net.ParseIP(fmt.Sprintf("%s%d", ipv6Prefix, i+1)))
@@ -119,13 +115,8 @@ func TestConstraints(t *testing.T) {
 
 func TestConstraintsCleanup(t *testing.T) {
 	origValidity := validity
-	origCleanupInterval := cleanupInterval
-	defer func() {
-		validity = origValidity
-		cleanupInterval = origCleanupInterval
-	}()
+	defer func() { validity = origValidity }()
 	validity = 500 * time.Millisecond
-	cleanupInterval = validity / 10
 
 	const limit = 7
 	res := &Resources{
@@ -135,7 +126,6 @@ func TestConstraintsCleanup(t *testing.T) {
 		MaxReservationsPerASN:  math.MaxInt32,
 	}
 	c := newConstraints(res)
-	defer c.Close()
 	for i := 0; i < limit; i++ {
 		if err := c.AddReservation(test.RandPeerIDFatal(t), randomIPv4Addr(t)); err != nil {
 			t.Fatal(err)
@@ -145,7 +135,7 @@ func TestConstraintsCleanup(t *testing.T) {
 		t.Fatalf("expected to run into total reservation limit, got %v", err)
 	}
 
-	time.Sleep(validity + 2*cleanupInterval)
+	time.Sleep(validity + time.Millisecond)
 	if err := c.AddReservation(test.RandPeerIDFatal(t), randomIPv4Addr(t)); err != nil {
 		t.Fatalf("expected old reservations to have been garbage collected, %v", err)
 	}

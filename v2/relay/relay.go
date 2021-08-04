@@ -95,7 +95,6 @@ func (r *Relay) Close() error {
 		for p := range r.rsvp {
 			r.host.ConnManager().UntagPeer(p, "relay-reservation")
 		}
-		r.constraints.Close()
 		r.mx.Unlock()
 	}
 	return nil
