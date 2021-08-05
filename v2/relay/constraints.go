@@ -1,10 +1,7 @@
 package relay
 
 import (
-	crand "crypto/rand"
-	"encoding/binary"
 	"errors"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -28,7 +25,6 @@ type constraints struct {
 	rc *Resources
 
 	mutex sync.Mutex
-	rand  rand.Rand
 	total []time.Time
 	peers map[peer.ID][]time.Time
 	ips   map[string][]time.Time
@@ -39,15 +35,8 @@ type constraints struct {
 // The methods are *not* thread-safe; an external lock must be held if synchronization
 // is required.
 func newConstraints(rc *Resources) *constraints {
-	b := make([]byte, 8)
-	if _, err := crand.Read(b); err != nil {
-		panic("failed to read from crypto/rand")
-	}
-	random := rand.New(rand.NewSource(int64(binary.BigEndian.Uint64(b))))
-
 	return &constraints{
 		rc:    rc,
-		rand:  *random,
 		peers: make(map[peer.ID][]time.Time),
 		ips:   make(map[string][]time.Time),
 		asns:  make(map[string][]time.Time),
