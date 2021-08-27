@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	pbv2 "github.com/libp2p/go-libp2p-circuit/v2/pb"
-	"github.com/libp2p/go-libp2p-circuit/v2/proto"
-	"github.com/libp2p/go-libp2p-circuit/v2/util"
+	pbv2 "github.com/libp2p/go-libp2p-circuit/circuitv2/pb"
+	"github.com/libp2p/go-libp2p-circuit/circuitv2/proto"
+	"github.com/libp2p/go-libp2p-circuit/circuitv2/util"
 
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"

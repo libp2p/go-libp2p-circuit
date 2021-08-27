@@ -4,13 +4,13 @@ import (
 	"context"
 	"sync"
 
-	"github.com/libp2p/go-libp2p-circuit/v2/proto"
+	"github.com/libp2p/go-libp2p-circuit/circuitv2/proto"
 
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
+	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
 
 	logging "github.com/ipfs/go-log"
-	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
 )
 
 var log = logging.Logger("p2p-circuit")

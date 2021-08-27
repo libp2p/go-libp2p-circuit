@@ -3,7 +3,7 @@ package proto
 import (
 	"time"
 
-	pbv2 "github.com/libp2p/go-libp2p-circuit/v2/pb"
+	pbv2 "github.com/libp2p/go-libp2p-circuit/circuitv2/pb"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/record"
