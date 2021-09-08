@@ -31,13 +31,14 @@ import (
 - A relays through R, R has no connection to B
 */
 
-func getNetHosts(t *testing.T, ctx context.Context, n int) []host.Host {
+func getNetHosts(t *testing.T, n int) []host.Host {
 	var out []host.Host
 
 	for i := 0; i < n; i++ {
-		netw := swarmt.GenSwarm(t, ctx)
+		netw := swarmt.GenSwarm(t)
 		h := bhost.NewBlankHost(netw)
 		out = append(out, h)
+		t.Cleanup(func() { h.Close() })
 	}
 
 	return out
@@ -63,7 +64,7 @@ func TestBasicRelay(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	hosts := getNetHosts(t, ctx, 3)
+	hosts := getNetHosts(t, 3)
 
 	connect(t, hosts[0], hosts[1])
 	connect(t, hosts[1], hosts[2])
@@ -137,7 +138,7 @@ func TestRelayReset(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	hosts := getNetHosts(t, ctx, 3)
+	hosts := getNetHosts(t, 3)
 
 	connect(t, hosts[0], hosts[1])
 	connect(t, hosts[1], hosts[2])
@@ -195,7 +196,7 @@ func TestRelayReset(t *testing.T) {
 func TestBasicRelayDial(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	hosts := getNetHosts(t, ctx, 3)
+	hosts := getNetHosts(t, 3)
 
 	connect(t, hosts[0], hosts[1])
 	connect(t, hosts[1], hosts[2])
@@ -267,7 +268,7 @@ func TestBasicRelayDial(t *testing.T) {
 func TestUnspecificRelayDialFails(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	hosts := getNetHosts(t, ctx, 3)
+	hosts := getNetHosts(t, 3)
 
 	r1 := newTestRelay(t, ctx, hosts[0])
 
@@ -316,7 +317,7 @@ func TestRelayThroughNonHop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	hosts := getNetHosts(t, ctx, 3)
+	hosts := getNetHosts(t, 3)
 
 	connect(t, hosts[0], hosts[1])
 	connect(t, hosts[1], hosts[2])
@@ -354,7 +355,7 @@ func TestRelayNoDestConnection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	hosts := getNetHosts(t, ctx, 3)
+	hosts := getNetHosts(t, 3)
 
 	connect(t, hosts[0], hosts[1])
 
@@ -389,7 +390,7 @@ func TestActiveRelay(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	hosts := getNetHosts(t, ctx, 3)
+	hosts := getNetHosts(t, 3)
 
 	connect(t, hosts[0], hosts[1])
 
@@ -451,7 +452,7 @@ func TestRelayCanHop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	hosts := getNetHosts(t, ctx, 2)
+	hosts := getNetHosts(t, 2)
 
 	connect(t, hosts[0], hosts[1])
 
