@@ -7,9 +7,9 @@ require (
 	github.com/ipfs/go-log v1.0.5
 	github.com/libp2p/go-buffer-pool v0.0.2
 	github.com/libp2p/go-libp2p-blankhost v0.2.0
-	github.com/libp2p/go-libp2p-core v0.8.6
-	github.com/libp2p/go-libp2p-swarm v0.5.3
-	github.com/libp2p/go-libp2p-transport-upgrader v0.4.6
+	github.com/libp2p/go-libp2p-core v0.10.0
+	github.com/libp2p/go-libp2p-swarm v0.6.0
+	github.com/libp2p/go-libp2p-transport-upgrader v0.5.0
 	github.com/libp2p/go-msgio v0.0.6
 	github.com/multiformats/go-multiaddr v0.3.3
 	github.com/multiformats/go-varint v0.0.6
