@@ -1,8 +1,8 @@
 package relay
 
 import (
-	"context"
 	"fmt"
+	"io"
 
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/transport"
@@ -13,6 +13,7 @@ import (
 var circuitAddr = ma.Cast(ma.ProtocolWithCode(ma.P_CIRCUIT).VCode)
 
 var _ transport.Transport = (*RelayTransport)(nil)
+var _ io.Closer = (*RelayTransport)(nil)
 
 type RelayTransport Relay
 
@@ -45,14 +46,19 @@ func (t *RelayTransport) Protocols() []int {
 	return []int{ma.P_CIRCUIT}
 }
 
+func (r *RelayTransport) Close() error {
+	r.ctxCancel()
+	return nil
+}
+
 // AddRelayTransport constructs a relay and adds it as a transport to the host network.
-func AddRelayTransport(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ...RelayOpt) error {
+func AddRelayTransport(h host.Host, upgrader *tptu.Upgrader, opts ...RelayOpt) error {
 	n, ok := h.Network().(transport.TransportNetwork)
 	if !ok {
 		return fmt.Errorf("%v is not a transport network", h.Network())
 	}
 
-	r, err := NewRelay(ctx, h, upgrader, opts...)
+	r, err := NewRelay(h, upgrader, opts...)
 	if err != nil {
 		return err
 	}

@@ -38,14 +38,13 @@ func getNetHosts(t *testing.T, n int) []host.Host {
 		netw := swarmt.GenSwarm(t)
 		h := bhost.NewBlankHost(netw)
 		out = append(out, h)
-		t.Cleanup(func() { h.Close() })
 	}
 
 	return out
 }
 
-func newTestRelay(t *testing.T, ctx context.Context, host host.Host, opts ...RelayOpt) *Relay {
-	r, err := NewRelay(ctx, host, swarmt.GenUpgrader(host.Network().(*swarm.Swarm)), opts...)
+func newTestRelay(t *testing.T, host host.Host, opts ...RelayOpt) *Relay {
+	r, err := NewRelay(host, swarmt.GenUpgrader(host.Network().(*swarm.Swarm)), opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,11 +70,11 @@ func TestBasicRelay(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0])
+	r1 := newTestRelay(t, hosts[0])
 
-	newTestRelay(t, ctx, hosts[1], OptHop)
+	newTestRelay(t, hosts[1], OptHop)
 
-	r3 := newTestRelay(t, ctx, hosts[2])
+	r3 := newTestRelay(t, hosts[2])
 
 	var (
 		conn1, conn2 net.Conn
@@ -145,11 +144,11 @@ func TestRelayReset(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0])
+	r1 := newTestRelay(t, hosts[0])
 
-	newTestRelay(t, ctx, hosts[1], OptHop)
+	newTestRelay(t, hosts[1], OptHop)
 
-	r3 := newTestRelay(t, ctx, hosts[2])
+	r3 := newTestRelay(t, hosts[2])
 
 	ready := make(chan struct{})
 
@@ -203,10 +202,10 @@ func TestBasicRelayDial(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0])
+	r1 := newTestRelay(t, hosts[0])
 
-	_ = newTestRelay(t, ctx, hosts[1], OptHop)
-	r3 := newTestRelay(t, ctx, hosts[2])
+	_ = newTestRelay(t, hosts[1], OptHop)
+	r3 := newTestRelay(t, hosts[2])
 
 	var (
 		conn1, conn2 net.Conn
@@ -266,49 +265,28 @@ func TestBasicRelayDial(t *testing.T) {
 }
 
 func TestUnspecificRelayDialFails(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	hosts := getNetHosts(t, 3)
 
-	r1 := newTestRelay(t, ctx, hosts[0])
-
-	newTestRelay(t, ctx, hosts[1], OptHop)
-
-	r3 := newTestRelay(t, ctx, hosts[2])
+	r1 := newTestRelay(t, hosts[0])
+	newTestRelay(t, hosts[1], OptHop)
+	r3 := newTestRelay(t, hosts[2])
 
 	connect(t, hosts[0], hosts[1])
 	connect(t, hosts[1], hosts[2])
 
 	time.Sleep(100 * time.Millisecond)
 
-	var (
-		done = make(chan struct{})
-	)
-
-	defer func() {
-		cancel()
-		<-done
-	}()
-
 	go func() {
-		defer close(done)
-		list := r3.Listener()
-
-		var err error
-		_, err = list.Accept()
-		if err == nil {
+		if _, err := r3.Listener().Accept(); err == nil {
 			t.Error("should not have received relay connection")
 		}
 	}()
 
 	addr := ma.StringCast("/p2p-circuit")
 
-	rctx, rcancel := context.WithTimeout(ctx, time.Second)
-	defer rcancel()
-
-	var err error
-	_, err = r1.Dial(rctx, addr, hosts[2].ID())
-	if err == nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if _, err := r1.Dial(ctx, addr, hosts[2].ID()); err == nil {
 		t.Fatal("expected dial with unspecified relay address to fail, even if we're connected to a relay")
 	}
 }
@@ -324,11 +302,11 @@ func TestRelayThroughNonHop(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0])
+	r1 := newTestRelay(t, hosts[0])
 
-	newTestRelay(t, ctx, hosts[1])
+	newTestRelay(t, hosts[1])
 
-	newTestRelay(t, ctx, hosts[2])
+	newTestRelay(t, hosts[2])
 
 	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
 	dinfo := hosts[2].Peerstore().PeerInfo(hosts[2].ID())
@@ -361,9 +339,9 @@ func TestRelayNoDestConnection(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0])
+	r1 := newTestRelay(t, hosts[0])
 
-	newTestRelay(t, ctx, hosts[1], OptHop)
+	newTestRelay(t, hosts[1], OptHop)
 
 	rinfo := hosts[1].Peerstore().PeerInfo(hosts[1].ID())
 	dinfo := hosts[2].Peerstore().PeerInfo(hosts[2].ID())
@@ -396,9 +374,9 @@ func TestActiveRelay(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0])
-	newTestRelay(t, ctx, hosts[1], OptHop, OptActive)
-	r3 := newTestRelay(t, ctx, hosts[2])
+	r1 := newTestRelay(t, hosts[0])
+	newTestRelay(t, hosts[1], OptHop, OptActive)
+	r3 := newTestRelay(t, hosts[2])
 
 	connChan := make(chan manet.Conn)
 
@@ -458,9 +436,9 @@ func TestRelayCanHop(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	r1 := newTestRelay(t, ctx, hosts[0])
+	r1 := newTestRelay(t, hosts[0])
 
-	newTestRelay(t, ctx, hosts[1], OptHop)
+	newTestRelay(t, hosts[1], OptHop)
 
 	canhop, err := r1.CanHop(ctx, hosts[1].ID())
 	if err != nil {

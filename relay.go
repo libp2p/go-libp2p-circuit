@@ -41,10 +41,11 @@ var (
 
 // Relay is the relay transport and service.
 type Relay struct {
-	host     host.Host
-	upgrader *tptu.Upgrader
-	ctx      context.Context
-	self     peer.ID
+	host      host.Host
+	upgrader  *tptu.Upgrader
+	ctx       context.Context
+	ctxCancel context.CancelFunc
+	self      peer.ID
 
 	active bool
 	hop    bool
@@ -93,15 +94,15 @@ func (e RelayError) Error() string {
 }
 
 // NewRelay constructs a new relay.
-func NewRelay(ctx context.Context, h host.Host, upgrader *tptu.Upgrader, opts ...RelayOpt) (*Relay, error) {
+func NewRelay(h host.Host, upgrader *tptu.Upgrader, opts ...RelayOpt) (*Relay, error) {
 	r := &Relay{
 		upgrader: upgrader,
 		host:     h,
-		ctx:      ctx,
 		self:     h.ID(),
 		incoming: make(chan *Conn),
 		hopCount: make(map[peer.ID]int),
 	}
+	r.ctx, r.ctxCancel = context.WithCancel(context.Background())
 
 	for _, opt := range opts {
 		switch opt {

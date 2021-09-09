@@ -23,20 +23,20 @@ const TestProto = "test/relay-transport"
 
 var msg = []byte("relay works!")
 
-func testSetupRelay(t *testing.T, ctx context.Context) []host.Host {
+func testSetupRelay(t *testing.T) []host.Host {
 	hosts := getNetHosts(t, 3)
 
-	err := AddRelayTransport(ctx, hosts[0], swarmt.GenUpgrader(hosts[0].Network().(*swarm.Swarm)))
+	err := AddRelayTransport(hosts[0], swarmt.GenUpgrader(hosts[0].Network().(*swarm.Swarm)))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = AddRelayTransport(ctx, hosts[1], swarmt.GenUpgrader(hosts[1].Network().(*swarm.Swarm)), OptHop)
+	err = AddRelayTransport(hosts[1], swarmt.GenUpgrader(hosts[1].Network().(*swarm.Swarm)), OptHop)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = AddRelayTransport(ctx, hosts[2], swarmt.GenUpgrader(hosts[2].Network().(*swarm.Swarm)))
+	err = AddRelayTransport(hosts[2], swarmt.GenUpgrader(hosts[2].Network().(*swarm.Swarm)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,10 +60,7 @@ func testSetupRelay(t *testing.T, ctx context.Context) []host.Host {
 }
 
 func TestFullAddressTransportDial(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	hosts := testSetupRelay(t, ctx)
+	hosts := testSetupRelay(t)
 
 	var relayAddr ma.Multiaddr
 	for _, addr := range hosts[1].Addrs() {
@@ -78,12 +75,11 @@ func TestFullAddressTransportDial(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rctx, rcancel := context.WithTimeout(ctx, time.Second)
-	defer rcancel()
-
 	hosts[0].Peerstore().AddAddrs(hosts[2].ID(), []ma.Multiaddr{addr}, peerstore.TempAddrTTL)
 
-	s, err := hosts[0].NewStream(rctx, hosts[2].ID(), TestProto)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	s, err := hosts[0].NewStream(ctx, hosts[2].ID(), TestProto)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +98,7 @@ func TestSpecificRelayTransportDial(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	hosts := testSetupRelay(t, ctx)
+	hosts := testSetupRelay(t)
 
 	addr, err := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s/p2p-circuit/ipfs/%s", hosts[1].ID().Pretty(), hosts[2].ID().Pretty()))
 	if err != nil {
@@ -133,7 +129,7 @@ func TestUnspecificRelayTransportDialFails(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	hosts := testSetupRelay(t, ctx)
+	hosts := testSetupRelay(t)
 
 	addr, err := ma.NewMultiaddr(fmt.Sprintf("/p2p-circuit/ipfs/%s", hosts[2].ID().Pretty()))
 	if err != nil {
