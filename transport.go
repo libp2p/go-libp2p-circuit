@@ -42,8 +42,10 @@ func (t *RelayTransport) Proxy() bool {
 	return true
 }
 
-func (t *RelayTransport) Protocols() []int {
-	return []int{ma.P_CIRCUIT}
+var protoCircuit = ma.ProtocolWithCode(ma.P_CIRCUIT)
+
+func (t *RelayTransport) Protocols() []ma.Protocol {
+	return []ma.Protocol{protoCircuit}
 }
 
 func (r *RelayTransport) Close() error {
