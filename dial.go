@@ -17,7 +17,8 @@ func (d *RelayTransport) Dial(ctx context.Context, a ma.Multiaddr, p peer.ID) (t
 		return nil, err
 	}
 	c.tagHop()
-	return d.upgrader.Upgrade(ctx, d, c, network.DirOutbound, p)
+	scope, _ := network.NullResourceManager.OpenConnection(network.DirOutbound, false)
+	return d.upgrader.Upgrade(ctx, d, c, network.DirOutbound, p, scope)
 }
 
 func (r *Relay) Dial(ctx context.Context, a ma.Multiaddr, p peer.ID) (*Conn, error) {
