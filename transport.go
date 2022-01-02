@@ -6,7 +6,6 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/transport"
-	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -52,7 +51,7 @@ func (r *RelayTransport) Close() error {
 }
 
 // AddRelayTransport constructs a relay and adds it as a transport to the host network.
-func AddRelayTransport(h host.Host, upgrader *tptu.Upgrader, opts ...RelayOpt) error {
+func AddRelayTransport(h host.Host, upgrader transport.Upgrader, opts ...RelayOpt) error {
 	n, ok := h.Network().(transport.TransportNetwork)
 	if !ok {
 		return fmt.Errorf("%v is not a transport network", h.Network())

@@ -14,11 +14,10 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
-
-	pool "github.com/libp2p/go-buffer-pool"
-	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
+	"github.com/libp2p/go-libp2p-core/transport"
 
 	logging "github.com/ipfs/go-log"
+	pool "github.com/libp2p/go-buffer-pool"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -42,7 +41,7 @@ var (
 // Relay is the relay transport and service.
 type Relay struct {
 	host      host.Host
-	upgrader  *tptu.Upgrader
+	upgrader  transport.Upgrader
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 	self      peer.ID
@@ -94,7 +93,7 @@ func (e RelayError) Error() string {
 }
 
 // NewRelay constructs a new relay.
-func NewRelay(h host.Host, upgrader *tptu.Upgrader, opts ...RelayOpt) (*Relay, error) {
+func NewRelay(h host.Host, upgrader transport.Upgrader, opts ...RelayOpt) (*Relay, error) {
 	r := &Relay{
 		upgrader: upgrader,
 		host:     h,

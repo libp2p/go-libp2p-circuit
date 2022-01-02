@@ -44,7 +44,7 @@ func getNetHosts(t *testing.T, n int) []host.Host {
 }
 
 func newTestRelay(t *testing.T, host host.Host, opts ...RelayOpt) *Relay {
-	r, err := NewRelay(host, swarmt.GenUpgrader(host.Network().(*swarm.Swarm)), opts...)
+	r, err := NewRelay(host, swarmt.GenUpgrader(t, host.Network().(*swarm.Swarm)), opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
