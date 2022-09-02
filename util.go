@@ -6,7 +6,7 @@ import (
 
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
 
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 
 	pool "github.com/libp2p/go-buffer-pool"
 	"github.com/libp2p/go-msgio/protoio"

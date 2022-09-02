@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p/core/network"
 
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/transport"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/transport"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -17,7 +17,7 @@ func (d *RelayTransport) Dial(ctx context.Context, a ma.Multiaddr, p peer.ID) (t
 		return nil, err
 	}
 	c.tagHop()
-	scope, _ := network.NullResourceManager.OpenConnection(network.DirOutbound, false)
+	scope, _ := network.NullResourceManager.OpenConnection(network.DirOutbound, false, a)
 	return d.upgrader.Upgrade(ctx, d, c, network.DirOutbound, p, scope)
 }
 

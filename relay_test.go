@@ -13,11 +13,11 @@ import (
 	. "github.com/libp2p/go-libp2p-circuit"
 	pb "github.com/libp2p/go-libp2p-circuit/pb"
 
-	bhost "github.com/libp2p/go-libp2p-blankhost"
-	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p/core/host"
+	bhost "github.com/libp2p/go-libp2p/p2p/host/blank"
 
-	swarm "github.com/libp2p/go-libp2p-swarm"
-	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
+	swarm "github.com/libp2p/go-libp2p/p2p/net/swarm"
+	swarmt "github.com/libp2p/go-libp2p/p2p/net/swarm/testing"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 )
