@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"testing"
 	"time"
@@ -186,7 +185,7 @@ func TestRelayReset(t *testing.T) {
 
 	close(ready)
 
-	_, err = ioutil.ReadAll(con)
+	_, err = io.ReadAll(con)
 	if err == nil {
 		t.Fatal("expected error for reset relayed connection")
 	}
